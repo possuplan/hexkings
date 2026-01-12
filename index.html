@@ -71,14 +71,15 @@ function debugMode(onoff = -1){
 		DEBUGMODE = onoff;
 	}
 	if (!DEBUGMODE) {
-		console.warn = function() {};
 		console.log = function() {};
+		console.warn = function() {};
 	} else {
-		console.warn = _warn;
 		console.log = _log;
+		console.warn = _warn;
 	}
 }
 
+// enable/disable debug:
 debugMode(DEBUGMODE);
 
 
