@@ -71,11 +71,11 @@ function debugMode(onoff = -1){
 		DEBUGMODE = onoff;
 	}
 	if (!DEBUGMODE) {
-		console.log = function() {};
 		console.warn = function() {};
+		console.log = function() {};
 	} else {
-		console.log = _log;
 		console.warn = _warn;
+		console.log = _log;
 	}
 }
 
