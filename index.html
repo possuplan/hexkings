@@ -669,7 +669,7 @@ label {
 	margin-top: 5px;
 	width: 66px;
 	height: 42px;
-	margin-left: 121px;
+	margin-left: 158px;
 	padding: 5px 4px 5px 4px;
 }
 
@@ -680,7 +680,7 @@ label {
 	/* transform: translate(-50%, -50%); */
 	z-index: 100;
 	pointer-events: auto;
-	width: 200px;
+	width: 237px;
 
 	border-top-left-radius: 12px;
 }
@@ -2698,7 +2698,8 @@ let gameSounds = {
 	
 	// used for: soldier kills castle.
 	killCastle:   {filename: "sounds/kill-castle-short.mp3",     gain: 0.2,   filter: false},
-
+	killBoat:     {filename: "sounds/mine-explosion.mp3",        gain: 0.2,   filter: false},
+	
 	// used for: knight kills peasant, horse kills knight.
 	swordKill:    {filename: "sounds/sword-kill.mp3",      gain: 1,   filter: false},
 
@@ -9669,6 +9670,7 @@ function badMove(reason){
 
 function isMoveValid(unit, toHex, player) {
 	if(isTypeBoat(unit.type)){
+		
 		if (unit.hasMoved){
 			return badMove('Unit has already moved.');
 		}
@@ -9677,6 +9679,9 @@ function isMoveValid(unit, toHex, player) {
 		}
 		if(getTileAt(toHex.q, toHex.r)){
 			return badMove('not_water');
+		}
+		if(getUnitAt(toHex.q, toHex.r)){
+			return badMove('not_empty');
 		}
 		return goodMove();
 	}
@@ -9801,6 +9806,9 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 		//}
 		if(getTileAt(hex.q, hex.r)){
 			return badMove('not_water');
+		}
+		if(getUnitAt(hex.q, hex.r)){
+			return badMove('not_empty');
 		}
 		return goodMove('move');
 	}
@@ -11723,10 +11731,26 @@ function msNowFloor(){
 
 // this is host function.
 function processEndOfDay(){
+	let batchActions = [];
 	console.warn("Day ended, new day starts. process trees, grasses etc.");
 	
+	
+	
+	// kill boats after they run out of time:
+	for(let i = 0; i < gameState.units.length; i++){
+		let unit = gameState.units[i];
+		
+		if(unit.daysLeft !== undefined){
+			unit.daysLeft--;
+			if(unit.daysLeft < 0){
+				// kill unit and explode:
+				let killData = killUnit(unit);
+				batchActions.push(...killData);
+			}
+		}
+	}
+	
 
-	let batchActions = [];
 	
 	// process:
 	// - crosses turning into grass.
@@ -12375,6 +12399,7 @@ function addUnit(unit){
 		unit.creationTime = msNowFloor(); 
 		unit.animationFinished = 0; // ensure no animation will be visible.
 		unit.animationStyle = 2; // 2 = appear from zero size to normal size, 0 = no animation.
+		unit.daysLeft = 5; // how many days left until it explodes
 		if(!unit.name){
 			unit.name = findNextFreeRandomUnitName(unit.ownerIndex);
 		}
@@ -12423,13 +12448,13 @@ function doBloodSplash(ep, splat = true){
 	return ep;
 }
 
-function doMineExplosion(ep){
+function doMineExplosion(ep, speed = 6){
 
 	//////////////////
 	// create splat trails explosion:
 	ep.color = "#FFFF00";
 	ep.shapeMode = 1; // circles
-	ep.initialSpeed = 6;
+	ep.initialSpeed = speed;
 	ep.toFloor = 1;
 	ep.fadeAtGround = 1;
 	ep.life = 4;
@@ -12507,6 +12532,18 @@ function makeExplosionBySoundMessage(data){
 		ep.fadeAtGround = 1;
 		ep.life = 4;
 		ep.amount = 20;
+		
+	}else if(data.name === 'boatExplosion'){
+		doExplosion = 0;
+		
+		ep.color = "#ad896b"; // wood
+		ep.shapeMode = 0; // triangles+squares
+		ep.initialSpeed = 5;
+		ep.amount = 40;
+		
+		createExplosion(ep);
+		
+		doMineExplosion(ep, 3); // yellow stripes, lower range than mine explosion.
 		
 	}else if(data.name === 'killCastleSimple'){
 		doExplosion = 1;
@@ -12648,6 +12685,16 @@ function makeExplosionBySoundMessage(data){
 		createExplosion(ep);
 	}
 }
+
+
+function killUnit(unit){
+	let arr = [];
+	arr.push({ type: ACTION.unit_removed, unitId: unit.id, explosion: "boatExplosion" });
+	arr.push({ type: ACTION.sound, name: "killBoat", q:0, r:0, playerIndex: -1, action: ACTION.unit_removed});
+	return arr;
+}
+
+
 
 function killPlayerUnits(playerIndex){
 	let arr = [];
@@ -13515,7 +13562,7 @@ function checkPlayersTimeouts(){
 	
 	for(let i = 0; i < gameState.players.length; i++){
 		let player = gameState.players[i];
-		if(player.lastPong && !player.isDead){
+		if(!player.isAI && player.lastPong && !player.isDead){
 			let timeDiff = Date.now()-player.lastPong;
 			if(timeDiff > TIMEOUT_MSG_TIME){
 				if(!player.timeoutMessaged){
@@ -13526,19 +13573,25 @@ function checkPlayersTimeouts(){
 				player.timeoutMessaged = false;
 			}
 			if(timeDiff > TIMEOUT_TIME){
-				broadcast({ type: ACTION.system_message, message: ">>> Player "+player.name+" has been disconnected." });
+				broadcast({ type: ACTION.system_message, message: ">>> Player "+player.name+" has been disconnected and set as AI player." });
 				
 				//console.warn("player "+player.name+" has timed out. setting player as dead.");
 				// kill player and set player.isDead = true :
 				// removed because it kinda sucks if the player units disappears... makes it too easy.
 				//batchActions.push(...killPlayer(player.playerIndex));
-				player.isDead = true;
-				player.disconnected = true;
+				
+				//player.isDead = true;
+				player.isAI = true;
+				//player.disconnected = true;
+				if(gameState.turn.currentPlayerIndex === player.playerIndex){
+					checkForAITurn();
+				}
+				
 
 				// if player was in turn:
-				if(gameState.turn.currentPlayerIndex === player.playerIndex){
-					killedCurrentTurnPlayer = true;
-				}
+				//if(gameState.turn.currentPlayerIndex === player.playerIndex){
+				//	killedCurrentTurnPlayer = true;
+				//}
 			}
 		}
 	}
