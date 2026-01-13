@@ -7388,6 +7388,8 @@ function drawUnits(){
 
 // rendermovementranges
 function drawMovementRanges(){
+	
+
 
 	// Draw movement range
 	ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
@@ -8170,6 +8172,56 @@ function render() {
 		drawPlacementHighlight();
 	}
 	
+	
+	
+
+	if(validSeaMoveHexes && validSeaMoveHexes.length > 0){
+		// Draw movement range
+		ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+		for (const hex of validSeaMoveHexes) {
+			//const { x, y } = axialToPixel(hex.q, hex.r);
+			const x = axialToPixelX(hex.q, hex.r);
+			const y = axialToPixelY(hex.q, hex.r);
+			drawHexagonPath(x, y);
+			ctx.fill();
+		}
+	}
+
+	if(routeHighlight && routeHighlight.length > 0){
+		// Draw movement range
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+		for (const hex of routeHighlight) {
+			//const { x, y } = axialToPixel(hex.q, hex.r);
+			const x = axialToPixelX(hex.q, hex.r);
+			const y = axialToPixelY(hex.q, hex.r);
+			drawHexagonPath(x, y);
+			ctx.fill();
+		}
+		
+		
+		ctx.beginPath();
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+		ctx.lineWidth = 5.5;
+		ctx.lineCap = 'round';
+		for(let i = 0; i < routeHighlight.length; i++){
+			let hex = routeHighlight[i];
+			const x = axialToPixelX(hex.q, hex.r);
+			const y = axialToPixelY(hex.q, hex.r);
+			if(i === 0){
+				ctx.moveTo(x,y);
+			}else{
+				ctx.lineTo(x,y);
+			}
+		}
+		ctx.stroke();
+
+		//ctxOut.closePath();
+	
+	}
+	
+	
+	
+	
 	if(focusedHexEnabled){
 		drawFocusedHex();
 	}
@@ -8829,9 +8881,9 @@ function getSelectedPoolHex(){
 
 let EDITOR_ENABLED = 0;
 
+let routeHighlight = [];
+
 function handleHexClick(hex) {
-
-
 	if(REPLAY_ENABLED) return;
 	
 	if(EDITOR_ENABLED){
@@ -8854,6 +8906,8 @@ function handleHexClick(hex) {
 		
 	}else{
 		
+
+		
 		shieldingUnits = null;
 		
 		sellUnitBtn.disabled = true;
@@ -8863,6 +8917,13 @@ function handleHexClick(hex) {
 			return;
 		}
 		const myPlayer = getMyPlayer();
+		
+		let startHex = gameState.units.find(
+			u => u.ownerIndex === myPlayer.playerIndex && u.internalType === 'boat'
+		);
+		if(startHex){
+			routeHighlight = findFastestRoute(startHex, hex);
+		}
 		
 		let clickedHexTile = getTileAt(hex.q, hex.r);
 		console.warn("handleHexClick: clickedHexTile:");
@@ -9306,17 +9367,259 @@ function isHexInPool(pool, hex){
 }
 
 
+
+function findFastestRoute(startHex, endHex, maxDistance = 50) {
+	const startKey = `${startHex.q},${startHex.r}`;
+	const endKey = `${endHex.q},${endHex.r}`;
+
+	const visited = new Set([startKey]);
+	const cameFrom = new Map();
+
+	// Queue entries: { q, r, distance }
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r,
+		distance: 0
+	}];
+
+	while (queue.length > 0) {
+		const { q, r, distance } = queue.shift();
+		const currentKey = `${q},${r}`;
+
+		if (currentKey === endKey) {
+			const path = [];
+			let k = currentKey;
+
+			while (k) {
+				const [pq, pr] = k.split(',').map(Number);
+				path.push({ q: pq, r: pr });
+				k = cameFrom.get(k);
+			}
+
+			return path.reverse();
+		}
+
+		if (distance === maxDistance) continue;
+
+		const neighbors = getHexNeighbors(q, r);
+
+		for (const n of neighbors) {
+			const key = `${n.q},${n.r}`;
+			if (visited.has(key)) continue;
+
+			// Land blocks movement
+			if (getTileAt(n.q, n.r)) continue;
+
+			// Units block movement
+			const unitBlocking = gameState.units.some(
+				u => u.q === n.q && u.r === n.r
+			);
+			if (unitBlocking) continue;
+
+			visited.add(key);
+			cameFrom.set(key, currentKey);
+
+			queue.push({
+				q: n.q,
+				r: n.r,
+				distance: distance + 1
+			});
+		}
+	}
+
+	return null;
+}
+
+
+function findFastestRoute2(startHex, endHex, maxIterations = 2000) {
+	const startKey = `${startHex.q},${startHex.r}`;
+	const endKey = `${endHex.q},${endHex.r}`;
+
+	const visited = new Set([startKey]);
+	const cameFrom = new Map();
+
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r
+	}];
+
+	let iterations = 0;
+
+	while (queue.length > 0) {
+		iterations++;
+		if (iterations > maxIterations) {
+			console.warn("Pathfinding aborted: iteration limit reached");
+			return null;
+		}
+
+		const current = queue.shift();
+		const currentKey = `${current.q},${current.r}`;
+
+		if (currentKey === endKey) {
+			const path = [];
+			let k = currentKey;
+
+			while (k) {
+				const [q, r] = k.split(',').map(Number);
+				path.push({ q, r });
+				k = cameFrom.get(k);
+			}
+
+			return path.reverse();
+		}
+
+		const neighbors = getHexNeighbors(current.q, current.r);
+
+		for (const n of neighbors) {
+			const key = `${n.q},${n.r}`;
+			if (visited.has(key)) continue;
+
+			if (getTileAt(n.q, n.r)) continue;
+
+			const unitBlocking = gameState.units.some(
+				u => u.q === n.q && u.r === n.r
+			);
+			if (unitBlocking) continue;
+
+			visited.add(key);
+			cameFrom.set(key, currentKey);
+			queue.push({ q: n.q, r: n.r });
+		}
+	}
+
+	return null;
+}
+
+
+
+
+function findFastestRoute1(startHex, endHex) {
+	if(getTileAt(endHex.q, endHex.r) || getTileAt(startHex.q, startHex.r)){
+		return null;
+	}
+	const startKey = `${startHex.q},${startHex.r}`;
+	const endKey = `${endHex.q},${endHex.r}`;
+
+	const visited = new Set([startKey]);
+	const cameFrom = new Map();
+
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r
+	}];
+
+	while (queue.length > 0) {
+		const current = queue.shift();
+		const currentKey = `${current.q},${current.r}`;
+
+		// Destination reached → reconstruct path
+		if (currentKey === endKey) {
+			const path = [];
+			let k = currentKey;
+
+			while (k) {
+				const [q, r] = k.split(',').map(Number);
+				path.push({ q, r });
+				k = cameFrom.get(k);
+			}
+
+			return path.reverse();
+		}
+
+		const neighbors = getHexNeighbors(current.q, current.r);
+
+		for (const n of neighbors) {
+			const key = `${n.q},${n.r}`;
+			if (visited.has(key)) continue;
+
+			// Land blocks movement
+			if (getTileAt(n.q, n.r)) continue;
+
+			// Units block movement (except the destination, if you want that behavior)
+			const unitBlocking = gameState.units.some(
+				u => u.q === n.q && u.r === n.r
+			);
+			if (unitBlocking) continue;
+
+			visited.add(key);
+			cameFrom.set(key, currentKey);
+
+			queue.push({ q: n.q, r: n.r });
+		}
+	}
+
+	// No path found
+	return null;
+}
+
+
+
+function getReachableHexes(startHex, maxRange = 5) {
+	const visited = new Set([`${startHex.q},${startHex.r}`]);
+	const results = [];
+
+	// Queue entries: { q, r, distance }
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r,
+		distance: 0
+	}];
+
+	while (queue.length > 0) {
+		const { q, r, distance } = queue.shift();
+
+		if (distance === maxRange) continue;
+
+		const neighbors = getHexNeighbors(q, r);
+
+		for (const n of neighbors) {
+			const key = `${n.q},${n.r}`;
+			if (visited.has(key)) continue;
+
+			visited.add(key);
+
+			// Land blocks movement
+			if (getTileAt(n.q, n.r)) continue;
+
+			// Units block movement
+			const unitBlocking = gameState.units.some(
+				u => u.q === n.q && u.r === n.r
+			);
+			if (unitBlocking) continue;
+
+			results.push({ q: n.q, r: n.r });
+
+			queue.push({
+				q: n.q,
+				r: n.r,
+				distance: distance + 1
+			});
+		}
+	}
+
+	return results;
+}
+
+
+let validSeaMoveHexes = [];
+
+
+
 function updateHighlights() {
 	// Clear all highlights
 	highlightedPool = [];
 	validMoveHexes = [];
 	invalidMoveHexes = [];
+	validSeaMoveHexes = [];
 	
 	enemyHighlightedPool = [];
 	
 	let poolStartHex = null;
 	if (selectedUnit) {
 		poolStartHex = selectedUnit;
+		if(isTypeBoat(selectedUnit.type)){
+			validSeaMoveHexes = getReachableHexes(poolStartHex);
+		}
 	} else if (selectedHex) {
 		poolStartHex = selectedHex;
 	}
@@ -9686,6 +9989,8 @@ function isMoveValid(unit, toHex, player) {
 		return goodMove();
 	}
 	
+	
+	// OTHER UNIT TYPES:
 	
 	if (unit.hasMoved){
 		return badMove('Unit has already moved.');
