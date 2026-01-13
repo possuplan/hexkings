@@ -3555,6 +3555,8 @@ const OTHER_UNITS_DATA = {
 	// - next turn you can move the boat for 5 hexes.
 	// - you have 5 days time until the boat explodes (sinks).
 	// - probably should have different image for different stages of timer, so it first loses its sail, and in the end looks almost sank.
+	
+	// unit.daysLeft = 7, explodes after 7 days.
 	"sailboat": { canMove: 1, frames: 1, visibleName: "Sailboat", name: "sailboat", type:"boat", defaultImage: "sailboat1", level: 1, cost: 1, wage: 0, sell: 0 },
 	
 	// experimental, could buy airships that are kinda like boats but can fly anywhere.
@@ -8177,7 +8179,7 @@ function render() {
 
 	if(validSeaMoveHexes && validSeaMoveHexes.length > 0){
 		// Draw movement range
-		ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
 		for (const hex of validSeaMoveHexes) {
 			//const { x, y } = axialToPixel(hex.q, hex.r);
 			const x = axialToPixelX(hex.q, hex.r);
@@ -9375,6 +9377,78 @@ function findFastestRoute(startHex, endHex, maxDistance = 50) {
 	const visited = new Set([startKey]);
 	const cameFrom = new Map();
 
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r,
+		distance: 0
+	}];
+
+	while (queue.length > 0) {
+		const { q, r, distance } = queue.shift();
+		const currentKey = `${q},${r}`;
+
+		if (currentKey === endKey) {
+			const path = [];
+			let k = currentKey;
+
+			while (k) {
+				const [pq, pr] = k.split(',').map(Number);
+				path.push({ q: pq, r: pr });
+				k = cameFrom.get(k);
+			}
+
+			return path.reverse();
+		}
+
+		if (distance === maxDistance) continue;
+
+		const neighbors = getHexNeighbors(q, r);
+
+		for (const n of neighbors) {
+			const key = `${n.q},${n.r}`;
+			if (visited.has(key)) continue;
+
+			const isEndHex = key === endKey;
+
+			// Block land unless this is the destination
+			if (!isEndHex && !isHexWater(n.q, n.r)){
+				continue;
+			}
+
+			// Block units unless this is the destination
+			if (!isEndHex) {
+				const unitBlocking = gameState.units.some(
+					u => u.q === n.q && u.r === n.r
+				);
+				if (unitBlocking) continue;
+			}
+
+			visited.add(key);
+			cameFrom.set(key, currentKey);
+
+			queue.push({
+				q: n.q,
+				r: n.r,
+				distance: distance + 1
+			});
+		}
+	}
+
+	return null;
+}
+
+
+
+function findFastestRoute1(startHex, endHex, maxDistance = 50) {
+	if(!isHexWater(endHex.q, endHex.r) || !isHexWater(startHex.q, startHex.r)){
+		return null;
+	}
+	const startKey = `${startHex.q},${startHex.r}`;
+	const endKey = `${endHex.q},${endHex.r}`;
+
+	const visited = new Set([startKey]);
+	const cameFrom = new Map();
+
 	// Queue entries: { q, r, distance }
 	const queue = [{
 		q: startHex.q,
@@ -9408,7 +9482,7 @@ function findFastestRoute(startHex, endHex, maxDistance = 50) {
 			if (visited.has(key)) continue;
 
 			// Land blocks movement
-			if (getTileAt(n.q, n.r)) continue;
+			if (!isHexWater(n.q, n.r)) continue;
 
 			// Units block movement
 			const unitBlocking = gameState.units.some(
@@ -9431,126 +9505,6 @@ function findFastestRoute(startHex, endHex, maxDistance = 50) {
 }
 
 
-function findFastestRoute2(startHex, endHex, maxIterations = 2000) {
-	const startKey = `${startHex.q},${startHex.r}`;
-	const endKey = `${endHex.q},${endHex.r}`;
-
-	const visited = new Set([startKey]);
-	const cameFrom = new Map();
-
-	const queue = [{
-		q: startHex.q,
-		r: startHex.r
-	}];
-
-	let iterations = 0;
-
-	while (queue.length > 0) {
-		iterations++;
-		if (iterations > maxIterations) {
-			console.warn("Pathfinding aborted: iteration limit reached");
-			return null;
-		}
-
-		const current = queue.shift();
-		const currentKey = `${current.q},${current.r}`;
-
-		if (currentKey === endKey) {
-			const path = [];
-			let k = currentKey;
-
-			while (k) {
-				const [q, r] = k.split(',').map(Number);
-				path.push({ q, r });
-				k = cameFrom.get(k);
-			}
-
-			return path.reverse();
-		}
-
-		const neighbors = getHexNeighbors(current.q, current.r);
-
-		for (const n of neighbors) {
-			const key = `${n.q},${n.r}`;
-			if (visited.has(key)) continue;
-
-			if (getTileAt(n.q, n.r)) continue;
-
-			const unitBlocking = gameState.units.some(
-				u => u.q === n.q && u.r === n.r
-			);
-			if (unitBlocking) continue;
-
-			visited.add(key);
-			cameFrom.set(key, currentKey);
-			queue.push({ q: n.q, r: n.r });
-		}
-	}
-
-	return null;
-}
-
-
-
-
-function findFastestRoute1(startHex, endHex) {
-	if(getTileAt(endHex.q, endHex.r) || getTileAt(startHex.q, startHex.r)){
-		return null;
-	}
-	const startKey = `${startHex.q},${startHex.r}`;
-	const endKey = `${endHex.q},${endHex.r}`;
-
-	const visited = new Set([startKey]);
-	const cameFrom = new Map();
-
-	const queue = [{
-		q: startHex.q,
-		r: startHex.r
-	}];
-
-	while (queue.length > 0) {
-		const current = queue.shift();
-		const currentKey = `${current.q},${current.r}`;
-
-		// Destination reached → reconstruct path
-		if (currentKey === endKey) {
-			const path = [];
-			let k = currentKey;
-
-			while (k) {
-				const [q, r] = k.split(',').map(Number);
-				path.push({ q, r });
-				k = cameFrom.get(k);
-			}
-
-			return path.reverse();
-		}
-
-		const neighbors = getHexNeighbors(current.q, current.r);
-
-		for (const n of neighbors) {
-			const key = `${n.q},${n.r}`;
-			if (visited.has(key)) continue;
-
-			// Land blocks movement
-			if (getTileAt(n.q, n.r)) continue;
-
-			// Units block movement (except the destination, if you want that behavior)
-			const unitBlocking = gameState.units.some(
-				u => u.q === n.q && u.r === n.r
-			);
-			if (unitBlocking) continue;
-
-			visited.add(key);
-			cameFrom.set(key, currentKey);
-
-			queue.push({ q: n.q, r: n.r });
-		}
-	}
-
-	// No path found
-	return null;
-}
 
 
 
@@ -9579,7 +9533,7 @@ function getReachableHexes(startHex, maxRange = 5) {
 			visited.add(key);
 
 			// Land blocks movement
-			if (getTileAt(n.q, n.r)) continue;
+			if (!isHexWater(n.q, n.r)) continue;
 
 			// Units block movement
 			const unitBlocking = gameState.units.some(
@@ -9618,7 +9572,7 @@ function updateHighlights() {
 	if (selectedUnit) {
 		poolStartHex = selectedUnit;
 		if(isTypeBoat(selectedUnit.type)){
-			validSeaMoveHexes = getReachableHexes(poolStartHex);
+			validSeaMoveHexes = getReachableHexes(poolStartHex, 6);
 		}
 	} else if (selectedHex) {
 		poolStartHex = selectedHex;
@@ -12704,7 +12658,7 @@ function addUnit(unit){
 		unit.creationTime = msNowFloor(); 
 		unit.animationFinished = 0; // ensure no animation will be visible.
 		unit.animationStyle = 2; // 2 = appear from zero size to normal size, 0 = no animation.
-		unit.daysLeft = 5; // how many days left until it explodes
+		unit.daysLeft = 7; // how many days left until it explodes
 		if(!unit.name){
 			unit.name = findNextFreeRandomUnitName(unit.ownerIndex);
 		}
