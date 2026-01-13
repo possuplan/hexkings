@@ -221,18 +221,21 @@ button[disabled] {
 
 
 #build-soldier-btn,
-#build-castle-btn {
+#build-castle-btn,
+#build-other-btn {
 	/* prevents annoying ghosting of hover effect that is visible under the build menu for a short time */
 	-webkit-tap-highlight-color: transparent;
 }
 
 #build-soldier-btn.cancel,
-#build-castle-btn.cancel {
+#build-castle-btn.cancel,
+#build-other-btn.cancel {
 	background:#d03535;
 }
 
 #build-soldier-btn.cancel::after,
-#build-castle-btn.cancel::after {
+#build-castle-btn.cancel::after,
+#build-other-btn.cancel::after {
 	content: "Cancel";
 	color: white;
 }
@@ -1120,6 +1123,19 @@ input.disabled {
 	gap: 10px;
 	line-height: 26px;
 }
+.input-group-center {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 7px;
+	align-items: center;
+}
+
+.no-select {
+	user-select: none;
+	-webkit-user-select: none; /* Safari */
+	-ms-user-select: none;     /* old Edge */
+}
+
 
 .poolinfo {
 	padding:0px;
@@ -1240,13 +1256,13 @@ input.disabled {
 }
 
 
-#build-btn {
+#build-other-btn {
 	background-image: url('images/ui/build.png');
 }
-#build-btn.disabled {
+#build-other-btn.disabled {
 	filter: brightness(0.5);
 }
-#build-btn[disabled] {
+#build-other-btn[disabled] {
 	filter: brightness(0.5);
 }
 
@@ -1430,14 +1446,16 @@ input.disabled {
 
 
 <div id="picker-popup">
-	<div id="picker-wrapper">
+	<div id="picker-wrapper" class="no-select">
 		<div class="picker" id="picker">
 			<div class="indicator" id="indicator"></div>
 		</div>
 		<input type="range" id="lightness" min="0" max="100" value="50">
-		<div class="input-group">
-			<button style="flex: 1" class="picker-popup-select" id="picker-popup-select">Select</button>
-			<button style="flex: 3; cursor:default" id="preview"></button>
+		<div class="input-group-center">
+			<button style="flex: 1" class="picker-popup-select primary" id="picker-popup-select">Select</button>
+			<div id="picker-preview-tile-wrapper">
+				<canvas id="picker-preview-tile" style="width:90px; height:90px"></canvas>
+			</div>
 			<button style="flex: 1" class="picker-popup-cancel" id="picker-popup-cancel">Cancel</button>
 		</div>
 	</div>
@@ -1971,8 +1989,8 @@ input.disabled {
 				</div>
 				<div class="info-right" id="info-right">
 					<div class="button-row" id="ui-right-button-row1-id">
-						<button id="build-btn" class="gamebutton" title="Build item" disabled></button>
 						<button id="sell-unit-btn" class="gamebutton" title="Sell warrior"></button>
+						<button id="build-other-btn" class="gamebutton" title="Build item"></button>
 						<button id="build-soldier-btn" class="gamebutton" title="Recruit warrior"></button>
 						<button id="build-castle-btn" class="gamebutton" title="Build castle"></button>
 						<button id="undo-btn" class="gamebutton redbutton" title="Undo"></button>
@@ -2334,11 +2352,13 @@ const pickerWrapper = document.getElementById('picker-wrapper');
 const picker = document.getElementById('picker');
 const indicator = document.getElementById('indicator');
 const lightnessSlider = document.getElementById('lightness');
-const preview = document.getElementById('preview');
+//const preview = document.getElementById('preview');
 
 
 //const hostCustomColorPicker = document.getElementById("host-custom-color-input");
 //const lobbyCustomColorPicker = document.getElementById("lobby-custom-color-input");
+
+const pickerPreviewTile = document.getElementById("picker-preview-tile");
 
 const hostPreviewTile = document.getElementById("host-preview-tile");
 const lobbyPreviewTile = document.getElementById("lobby-preview-tile");
@@ -2389,15 +2409,6 @@ lobbyPreviewTile.addEventListener("click", (e) => {
 });
 
 
-function updateHostPreviewTile(color){
-	let textureType = landTextures[getMyPlayer().textureType ?? 0];
-	createHexagonMaskedImage(getImage(textureType), HEX_SIZE, 1, hostPreviewTile, color);
-}
-function updateLobbyPreviewTile(color){
-	let textureType = landTextures[getMyPlayer().textureType ?? 0];
-	createHexagonMaskedImage(getImage(textureType), HEX_SIZE, 1, lobbyPreviewTile, color);
-}
-
 
 /*
 hostCustomColorPicker.addEventListener('input', (e) => {
@@ -2430,157 +2441,7 @@ lobbyCustomColorPicker.addEventListener('change', (e) => {
 
 
 
-//////////////////////////////
-// color picker:
 
-
-let hue = 0;
-let saturation = 100;
-let lightness = 50;
-
-function updateColorPreview() {
-	const [r, g, b] = hslToRgb(hue, saturation, lightness);
-	currentColor = rgbToHex(r, g, b);
-	preview.style.backgroundColor = rgbToHex(r, g, b);
-}
-
-
-
-function rgbToHsl(r, g, b) {
-	// Normalize r, g, b to [0, 1]
-	r /= 255;
-	g /= 255;
-	b /= 255;
-
-	const max = Math.max(r, g, b);
-	const min = Math.min(r, g, b);
-	const delta = max - min;
-
-	let h = 0, s = 0, l = (max + min) / 2;
-
-	if (delta !== 0) {
-		s = delta / (1 - Math.abs(2 * l - 1));
-
-		switch(max) {
-			case r:
-				h = ((g - b) / delta) % 6;
-				break;
-			case g:
-				h = ((b - r) / delta) + 2;
-				break;
-			case b:
-				h = ((r - g) / delta) + 4;
-				break;
-		}
-
-		h *= 60;
-		if (h < 0) h += 360;
-	}
-
-	return { 
-		h: Math.round(h), 
-		s: +(s * 100).toFixed(1), 
-		l: +(l * 100).toFixed(1) 
-	};
-}
-
-
-function hslToRgb(h, s, l) {
-	s /= 100;
-	l /= 100;
-	const k = n => (n + h / 30) % 12;
-	const a = s * Math.min(l, 1 - l);
-	const f = n => l - a * Math.max(Math.min(k(n) - 3, 9 - k(n), 1), -1);
-	return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)];
-}
-
-function updateIndicator(){
-	const rect = picker.getBoundingClientRect();
-	
-	let x = (hue/360)*rect.width;
-	let y = ((100-saturation)/100)*rect.height;
-	
-	indicator.style.left = `${x}px`;
-	indicator.style.top = `${y}px`;
-	
-	console.log(lightness);
-	
-	lightnessSlider.value = lightness;
-}
-
-function getPoint(e) {
-	if (e.touches && e.touches.length) {
-		return {
-			x: e.touches[0].clientX,
-			y: e.touches[0].clientY
-		};
-	}
-
-	return {
-		x: e.clientX,
-		y: e.clientY
-	};
-}
-function handlePointer(e) {
-	const rect = picker.getBoundingClientRect();
-	const { x, y } = getPoint(e);
-
-	const px = Math.min(Math.max(x - rect.left, 0), rect.width);
-	const py = Math.min(Math.max(y - rect.top, 0), rect.height);
-
-	hue = (px / rect.width) * 360;
-	saturation = 100 - (py / rect.height) * 100;
-
-	indicator.style.left = `${px}px`;
-	indicator.style.top = `${py}px`;
-
-	updateColorPreview();
-}
-
-function handlePointer1(e) {
-	const rect = picker.getBoundingClientRect();
-	const x = Math.min(Math.max((e.clientX || e.touches[0].clientX) - rect.left, 0), rect.width);
-	const y = Math.min(Math.max((e.clientY || e.touches[0].clientY) - rect.top, 0), rect.height);
-
-	hue = (x / rect.width) * 360;
-	saturation = 100 - (y / rect.height) * 100;
-
-	indicator.style.left = `${x}px`;
-	indicator.style.top = `${y}px`;
-
-	updateColorPreview();
-}
-
-picker.addEventListener('mousedown', e => {
-	handlePointer(e);
-	const moveHandler = e => handlePointer(e);
-	const upHandler = () => {
-		window.removeEventListener('mousemove', moveHandler);
-		window.removeEventListener('mouseup', upHandler);
-	};
-	window.addEventListener('mousemove', moveHandler);
-	window.addEventListener('mouseup', upHandler);
-});
-
-picker.addEventListener('touchstart', e => {
-	e.preventDefault();
-	handlePointer(e);
-	const moveHandler = e => handlePointer(e);
-	const endHandler = () => {
-		window.removeEventListener('touchmove', moveHandler);
-		window.removeEventListener('touchend', endHandler);
-	};
-	window.addEventListener('touchmove', moveHandler);
-	window.addEventListener('touchend', endHandler);
-});
-
-lightnessSlider.addEventListener('input', e => {
-	lightness = e.target.value; // 0-100
-	updateColorPreview();
-});
-
-// initial preview
-updateColorPreview();
 
 
 
@@ -3657,47 +3518,54 @@ const SOLDIER_DATA = {
 	// listed in this order.
 	// visibleName = text shown to user.
 	// name = internal name, same as the key (maybe useful later).
-	"dragon":  { visibleName: "Dragon",  name: "dragon",  type:"soldier", level: 4, cost: 40, wage: 54, sell: 20 },
-	"horse":   { visibleName: "Horse",   name: "horse",   type:"soldier", level: 3, cost: 30, wage: 18, sell: 15 },
-	"knight":  { visibleName: "Knight",  name: "knight",  type:"soldier", level: 2, cost: 20, wage: 8, sell: 10 },
-	"peasant": { visibleName: "Peasant", name: "peasant", type:"soldier", level: 1, cost: 10, wage: 3, sell: 5 },
+	// defaultImage = imageAssets key for the unit image first animation frame (default image).
+	"dragon":  { canMove: 1, frames: 2, visibleName: "Dragon",  name: "dragon",  type:"soldier", defaultImage: "soldier4", level: 4, cost: 40, wage: 54, sell: 20 },
+	"horse":   { canMove: 1, frames: 2, visibleName: "Horse",   name: "horse",   type:"soldier", defaultImage: "soldier3", level: 3, cost: 30, wage: 18, sell: 15 },
+	"knight":  { canMove: 1, frames: 2, visibleName: "Knight",  name: "knight",  type:"soldier", defaultImage: "soldier2", level: 2, cost: 20, wage: 8, sell: 10 },
+	"peasant": { canMove: 1, frames: 2, visibleName: "Peasant", name: "peasant", type:"soldier", defaultImage: "soldier1", level: 1, cost: 10, wage: 3, sell: 5 },
 };
 
 // castles castle_units
 // cost values checked from original gameplay.
 const CASTLE_DATA = {
 	// listed in this order.
-	"fortress": { visibleName: "Fortress",name: "fortress", type:"castle", level: 3, cost: 200 },
-	"castle":   { visibleName: "Castle",  name: "castle",   type:"castle", level: 2, cost: 40 },
-	"hut":      { visibleName: "Hut",     name: "hut",      type:"castle", level: 1, cost: 10 },
+	"fortress": { canMove: 0, frames: 1, visibleName: "Fortress",name: "fortress", type:"castle", defaultImage: "castle3", level: 3, cost: 200 },
+	"castle":   { canMove: 0, frames: 1, visibleName: "Castle",  name: "castle",   type:"castle", defaultImage: "castle2", level: 2, cost: 40 },
+	"hut":      { canMove: 0, frames: 1, visibleName: "Hut",     name: "hut",      type:"castle", defaultImage: "castle1", level: 1, cost: 10 },
 };
 
-const BOAT_DATA = {
+const OTHER_UNITS_DATA = {
 	// listed in this order.
-	"sailboat":{ visibleName: "Sailboat",name: "sailboat",type:"boat", level: 1, cost: 1, wage: 0, sell: 0 },
+	
+	// need to think where would the wage be taken if the boat has wage... 
+	// probably best if no wages and the unit can just "teleport" to the shore land from the ship.
+	// also should probably have timer until the boat dies, so you cant stockpile units on the sea with boats
+	// which would allow big army surprise attacks.
+	// so maybe boats could live only for like 4 days until they explode and you lose the unit inside it.
+	// boat units needs to have unit.cargo key set to describe what is inside it.
+	// also when your unit moves to the boat, the unit.onBoat = boatUnitIndex should be set,
+	// and that unit wont be rendered or affected at all. perhaps set q,r to -1 both.
+	
+	// so the plan is:
+	// - soldier must be next to water and selected before building a boat.
+	// - depending on unit cost, the boat cost = cost+20, so the costs are in order: 30, 40, 50, 60
+	// - when you build the boat, the unit will instantly convert into a boat unit on the water tile.
+	//   set unit.type = 'boat', unit.timer = 5, unit.hasMoved = true, unit.cargo = 'peasant' (building unit type) and q,r changes to the boat position.
+	// - next turn you can move the boat for 5 hexes.
+	// - you have 5 days time until the boat explodes (sinks).
+	// - probably should have different image for different stages of timer, so it first loses its sail, and in the end looks almost sank.
+	"sailboat": { canMove: 1, frames: 1, visibleName: "Sailboat", name: "sailboat", type:"boat", defaultImage: "sailboat1", level: 1, cost: 1, wage: 0, sell: 0 },
+	
+	// experimental, could buy airships that are kinda like boats but can fly anywhere.
+	// should also explode after a time.
+	// could unload the unit inside it to the ground, or make a kamikaze.
+	// unit.cargo = 'peasant', unit.bombs = 1 (you could buy bomb optionally).
+	//"airship":  { visibleName: "Airship", name: "airship", type:"airship", level: 1, cost: 40, wage: 0, sell: 0 },
+	
+	// experimental, could buy cannons that can be used to shoot enemy units.
+	// each unit should have life for this to work, or make each bullet cost a lot, or make it imprecise.
+	//"cannon":  { visibleName: "Cannon", name: "cannon", type:"cannon", level: 1, cost: 40, wage: 0, sell: 0 },
 };
-
-
-const EPSILON = 0.000001; // The margin of error for buying units etc.
-
-
-function getCheapestCost(data, type) {
-	let cheapest = null;
-	for (const key in data) {
-		const entry = data[key];
-		if (entry.type === type) {
-			if (!cheapest || entry.cost < cheapest.cost) {
-				cheapest = entry;
-			}
-		}
-	}
-	return cheapest.cost;
-}
-
-// used to check if can afford any castle or soldier:
-let minCastleCost = getCheapestCost(CASTLE_DATA, "castle");
-let minSoldierCost = getCheapestCost(SOLDIER_DATA, "soldier");
-
 
 
 // todo: use this array instead of 2 separate arrays for soldiers and castles.
@@ -3705,7 +3573,7 @@ const UNITS = {
 	ALL: {
 		...SOLDIER_DATA,
 		...CASTLE_DATA,
-		...BOAT_DATA,
+		...OTHER_UNITS_DATA, // disabled here for now or getCheapestCost wont work.
 	},
 	soldier: { // this should be unit type, which can be used directly as reference here.
 		...SOLDIER_DATA
@@ -3713,8 +3581,8 @@ const UNITS = {
 	castle: {
 		...CASTLE_DATA
 	},
-	boat: {
-		...BOAT_DATA
+	other: {
+		...OTHER_UNITS_DATA
 	},
 	object: {
 		
@@ -3725,13 +3593,49 @@ console.warn("UNITS");
 console.warn(UNITS);
 
 
-function getSoldierLevel(type){
-	return SOLDIER_DATA[type].level;
-}
-function getCastleLevel(type){
-	return CASTLE_DATA[type].level;
+const EPSILON = 0.000001; // The margin of error for buying units etc.
+
+
+function getCheapestCost(data) {
+	let cheapest = null;
+	for (const key in data) {
+		const entry = data[key];
+		if (!cheapest || entry.cost < cheapest.cost) {
+			cheapest = entry;
+		}
+	}
+	return cheapest.cost;
 }
 
+// used to check if can afford any castle or soldier:
+let minCastleCost = getCheapestCost(UNITS.castle);
+let minSoldierCost = getCheapestCost(UNITS.soldier);
+let minOtherCost = getCheapestCost(UNITS.other);
+
+
+
+function canBuyAnything(totalSavings){
+	for (const key in UNITS.ALL) {
+		const entry = UNITS.ALL[key];
+		if(totalSavings >= entry.cost) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function unitTypeAnimationFramesCount(type){
+	return getUnitInfo(type).frames;
+}
+
+function unitTypeCanMove(type){
+	return getUnitInfo(type).canMove;
+}
+
+function getUnitLevel(type){
+	return getUnitInfo(type).level;
+	//return CASTLE_DATA[type].level;
+}
 
 
 // --- GLOBAL STATE ---
@@ -3753,6 +3657,7 @@ let localPlayer = {
 	isAI: false,
 	undoCounter: 0, // will be updated in undo_counter message and used to determine if there are any undoing left.
 };
+
 
 
 
@@ -3833,6 +3738,45 @@ function resetGameState(){
 	localPlayer.isDead = false;
 	localPlayer.isAI = false;
 }
+
+
+
+
+
+function getPlayer(playerId) {
+	return gameState.players.find(p => p.id === playerId);
+}
+
+function getPlayerByIndex(playerIndex) {
+	// -1 is no-owner.
+	if(playerIndex !== -1 && gameState.players[playerIndex]){
+		return gameState.players[playerIndex];
+	}else{
+		return null;
+	}
+}
+
+function getPlayerIndex(playerId) {
+	// will return -1 if not found any.
+	return gameState.players.findIndex(p => p.id === playerId);
+}
+
+function getPlayerId(playerIndex){
+	if(playerIndex !== undefined && playerIndex !== -1){
+		return gameState.players[playerIndex].id;
+	}
+	console.error("getPlayerId returned null: playerIndex '"+playerIndex+"' is invalid.");
+	return null;
+}
+
+
+function getMyPlayer() {
+	return getPlayer(localPlayer.id);
+}
+
+
+
+
 
 
 let startMoneyPerHexInput = document.getElementById('start-money-per-hex');
@@ -3969,12 +3913,13 @@ let imageCache = {};
 let imageAssets;
 
 
-function buildImageName(unitData){
-	return `${unitData.type}${unitData.level}`; // soldier1
+function buildImageName(unitInfo){
+	return `${unitInfo.type}${unitInfo.level}`; // soldier1
 }
 
-function getImagePath(unitData){
-	return imageAssets[buildImageName(unitData)].path;
+function getImagePath(unitInfo){
+	return imageAssets[unitInfo.defaultImage].path;
+	//return imageAssets[buildImageName(unitData)].path;
 }
 
 
@@ -4074,14 +4019,15 @@ imageAssets = {
 	'soldier2': {path:'images/'+pathPrefix+'/soldier2.png', scale: unitScales[4], offsetX: unitOffsets[4].x, offsetY: unitOffsets[4].y},
 	'soldier3': {path:'images/'+pathPrefix+'/soldier3.png', scale: unitScales[5], offsetX: unitOffsets[5].x, offsetY: unitOffsets[5].y},
 	'soldier4': {path:'images/'+pathPrefix+'/soldier4.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
-	'soldier5': {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
 	
-	'soldier1-b': {path:'images/'+pathPrefix+'/soldier1-b.png', scale: unitScales[3], offsetX: unitOffsets[3].x, offsetY: unitOffsets[3].y},
-	'soldier2-b': {path:'images/'+pathPrefix+'/soldier2-b.png', scale: unitScales[4], offsetX: unitOffsets[4].x, offsetY: unitOffsets[4].y},
-	'soldier3-b': {path:'images/'+pathPrefix+'/soldier3-b.png', scale: unitScales[5], offsetX: unitOffsets[5].x, offsetY: unitOffsets[5].y},
-	'soldier4-b': {path:'images/'+pathPrefix+'/soldier4-b.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
-	'soldier5-b': {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
+	// "-1" = second frame. could add more frames later.
+	'soldier1-1': {path:'images/'+pathPrefix+'/soldier1-1.png', scale: unitScales[3], offsetX: unitOffsets[3].x, offsetY: unitOffsets[3].y},
+	'soldier2-1': {path:'images/'+pathPrefix+'/soldier2-1.png', scale: unitScales[4], offsetX: unitOffsets[4].x, offsetY: unitOffsets[4].y},
+	'soldier3-1': {path:'images/'+pathPrefix+'/soldier3-1.png', scale: unitScales[5], offsetX: unitOffsets[5].x, offsetY: unitOffsets[5].y},
+	'soldier4-1': {path:'images/'+pathPrefix+'/soldier4-1.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
 	
+	'sailboat1':   {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: 0, offsetY: -4},
+
 	
 	//'castle1':  {path:'images/orig-scaled/128x128/castle1.png', scale:1.8, offsetX: 0},
 	//'castle2':  {path:'images/orig-scaled/128x128/castle2.png', scale:1.8, offsetX: 0},
@@ -4093,6 +4039,177 @@ imageAssets = {
 };
 if(use_fill){
 	imageAssets['dirt'] = {path:'images/dirt3.png', scale:1, offsetX: 0, isPattern: true};
+}
+
+
+
+
+
+
+//////////////////////////////
+// color picker:
+
+
+let hue = 0;
+let saturation = 100;
+let lightness = 50;
+
+function updateColorPreview() {
+	const [r, g, b] = hslToRgb(hue, saturation, lightness);
+	currentColor = rgbToHex(r, g, b);
+	//preview.style.backgroundColor = rgbToHex(r, g, b);
+	updatePickerPreviewTile(currentColor);
+}
+
+
+
+function rgbToHsl(r, g, b) {
+	// Normalize r, g, b to [0, 1]
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	const delta = max - min;
+
+	let h = 0, s = 0, l = (max + min) / 2;
+
+	if (delta !== 0) {
+		s = delta / (1 - Math.abs(2 * l - 1));
+
+		switch(max) {
+			case r:
+				h = ((g - b) / delta) % 6;
+				break;
+			case g:
+				h = ((b - r) / delta) + 2;
+				break;
+			case b:
+				h = ((r - g) / delta) + 4;
+				break;
+		}
+
+		h *= 60;
+		if (h < 0) h += 360;
+	}
+
+	return { 
+		h: Math.round(h), 
+		s: +(s * 100).toFixed(1), 
+		l: +(l * 100).toFixed(1) 
+	};
+}
+
+
+function hslToRgb(h, s, l) {
+	s /= 100;
+	l /= 100;
+	const k = n => (n + h / 30) % 12;
+	const a = s * Math.min(l, 1 - l);
+	const f = n => l - a * Math.max(Math.min(k(n) - 3, 9 - k(n), 1), -1);
+	return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)];
+}
+
+function updateIndicator(){
+	const rect = picker.getBoundingClientRect();
+	
+	let x = (hue/360)*rect.width;
+	let y = ((100-saturation)/100)*rect.height;
+	
+	indicator.style.left = `${x}px`;
+	indicator.style.top = `${y}px`;
+	
+	console.log(lightness);
+	
+	lightnessSlider.value = lightness;
+}
+
+function getPoint(e) {
+	if (e.touches && e.touches.length) {
+		return {
+			x: e.touches[0].clientX,
+			y: e.touches[0].clientY
+		};
+	}
+
+	return {
+		x: e.clientX,
+		y: e.clientY
+	};
+}
+function handlePointer(e) {
+	const rect = picker.getBoundingClientRect();
+	const { x, y } = getPoint(e);
+
+	const px = Math.min(Math.max(x - rect.left, 0), rect.width);
+	const py = Math.min(Math.max(y - rect.top, 0), rect.height);
+
+	hue = (px / rect.width) * 360;
+	saturation = 100 - (py / rect.height) * 100;
+
+	indicator.style.left = `${px}px`;
+	indicator.style.top = `${py}px`;
+
+	updateColorPreview();
+}
+
+function handlePointer1(e) {
+	const rect = picker.getBoundingClientRect();
+	const x = Math.min(Math.max((e.clientX || e.touches[0].clientX) - rect.left, 0), rect.width);
+	const y = Math.min(Math.max((e.clientY || e.touches[0].clientY) - rect.top, 0), rect.height);
+
+	hue = (x / rect.width) * 360;
+	saturation = 100 - (y / rect.height) * 100;
+
+	indicator.style.left = `${x}px`;
+	indicator.style.top = `${y}px`;
+
+	updateColorPreview();
+}
+
+picker.addEventListener('mousedown', e => {
+	handlePointer(e);
+	const moveHandler = e => handlePointer(e);
+	const upHandler = () => {
+		window.removeEventListener('mousemove', moveHandler);
+		window.removeEventListener('mouseup', upHandler);
+	};
+	window.addEventListener('mousemove', moveHandler);
+	window.addEventListener('mouseup', upHandler);
+});
+
+picker.addEventListener('touchstart', e => {
+	e.preventDefault();
+	handlePointer(e);
+	const moveHandler = e => handlePointer(e);
+	const endHandler = () => {
+		window.removeEventListener('touchmove', moveHandler);
+		window.removeEventListener('touchend', endHandler);
+	};
+	window.addEventListener('touchmove', moveHandler);
+	window.addEventListener('touchend', endHandler);
+});
+
+lightnessSlider.addEventListener('input', e => {
+	lightness = e.target.value; // 0-100
+	updateColorPreview();
+});
+
+
+
+function updatePickerPreviewTile(color){
+	let textureType = landTextures[getMyPlayer().textureType ?? 0];
+	createHexagonMaskedImage(getImage(textureType), HEX_SIZE, 1, pickerPreviewTile, color);
+}
+
+function updateHostPreviewTile(color){
+	let textureType = landTextures[getMyPlayer().textureType ?? 0];
+	createHexagonMaskedImage(getImage(textureType), HEX_SIZE, 1, hostPreviewTile, color);
+}
+function updateLobbyPreviewTile(color){
+	let textureType = landTextures[getMyPlayer().textureType ?? 0];
+	createHexagonMaskedImage(getImage(textureType), HEX_SIZE, 1, lobbyPreviewTile, color);
 }
 
 
@@ -4748,6 +4865,8 @@ const infoLeft = document.getElementById('info-left');
 const nextUnitBtn = document.getElementById('next-unit-btn');
 const previousUnitBtn = document.getElementById('previous-unit-btn');
 
+const buildOtherBtn = document.getElementById('build-other-btn');
+
 const buildSoldierBtn = document.getElementById('build-soldier-btn');
 const buildCastleBtn = document.getElementById('build-castle-btn');
 const endTurnBtn = document.getElementById('end-turn-btn');
@@ -4963,7 +5082,9 @@ function findNextFreeRandomUnitName(playerIndex){
 	let unitNamesList = [];
 	for(let i = 0; i < gameState.units.length; i++){
 		let unit = gameState.units[i];
-		if(unit.name && unit.ownerIndex === playerIndex && unit.internalType === 'soldier'){
+		
+		if(unit.name && unit.ownerIndex === playerIndex && unitTypeCanMove(unit.type)){
+		//if(unit.name && unit.ownerIndex === playerIndex && unit.internalType === 'soldier'){
 			unitNamesList.push(unit.name);
 		}
 	}
@@ -5139,7 +5260,9 @@ function centerAndSelectFirstUnit(selectUnit = true){
 		
 		// find first soldier unit to center to:
 		for (const unit of gameState.units) {
-			if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex){
+			
+			if(unitTypeCanMove(unit.type) && unit.ownerIndex === player.playerIndex){
+			//if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex){
 				if(selectUnit){
 					centerAndSelectUnit(unit);
 				}else{
@@ -5149,7 +5272,7 @@ function centerAndSelectFirstUnit(selectUnit = true){
 				break;
 			}
 		}
-		// no soldier found: try to find a castle and center to it:
+		// no movable units found: try to find a castle and center to it:
 		// this might be possible when loading a game, or if loaded map has castles set.
 		if(!found){
 			for (const unit of gameState.units) {
@@ -5590,36 +5713,6 @@ function getUID(maxLength = 10) {
 	return shortUIDBase36(maxLength);
 }
 
-function getPlayer(playerId) {
-	return gameState.players.find(p => p.id === playerId);
-}
-
-function getPlayerByIndex(playerIndex) {
-	// -1 is no-owner.
-	if(playerIndex !== -1 && gameState.players[playerIndex]){
-		return gameState.players[playerIndex];
-	}else{
-		return null;
-	}
-}
-
-function getPlayerIndex(playerId) {
-	// will return -1 if not found any.
-	return gameState.players.findIndex(p => p.id === playerId);
-}
-
-function getPlayerId(playerIndex){
-	if(playerIndex !== undefined && playerIndex !== -1){
-		return gameState.players[playerIndex].id;
-	}
-	console.error("getPlayerId returned null: playerIndex '"+playerIndex+"' is invalid.");
-	return null;
-}
-
-
-function getMyPlayer() {
-	return getPlayer(localPlayer.id);
-}
 
 
 // =================================================================
@@ -7044,7 +7137,7 @@ let animationLenTree = 600;
 let animationLenGrass = 400;
 
 // draw only specific type of units; "soldier" or "castle"
-function drawUnitsByType(unitType){
+function drawUnitsByInternalType(unitType){
 	for (const unit of gameState.units) {
 		if(unit.internalType !== unitType){
 			continue;
@@ -7067,18 +7160,20 @@ function drawUnitsByType(unitType){
 			continue;
 		}
 
-		const data = SOLDIER_DATA[unit.type] || CASTLE_DATA[unit.type];
+		const data = getUnitInfo(unit.type);//SOLDIER_DATA[unit.type] || CASTLE_DATA[unit.type];
 		
 		let animSuffix = "";
-		if(unit.internalType === 'soldier'){
+		let animationFrames = unitTypeAnimationFramesCount(unit.type);
+		if(animationFrames > 1){
+		//if(unit.internalType === 'soldier'){
 			// disabled for now, seems confusing when there is constant movement on screen.
 			let useRandomPhase = 0; // 0 or 1 value to enable randomized animation phase.
 			
-			// causes image to be "soldier1-b.png" etc, the second and last frame for animation.
-			animSuffix = pulseScale(0,1, 0.002, unit.q*unit.r*useRandomPhase) < 0.5 ? "-b" : "";
+			// causes image to be "soldier1-1.png" etc, the second frame for animation.
+			animSuffix = pulseScale(0,1, 0.002, unit.q*unit.r*useRandomPhase) < 0.5 ? "-1" : "";
 		}
 		
-		let imageKey = `${data.type}${data.level}${animSuffix}`;
+		let imageKey = `${data.defaultImage}${animSuffix}`;//`${data.type}${data.level}${animSuffix}`;
 		const img = getImage(imageKey);
 		
 		
@@ -7205,8 +7300,9 @@ function drawUnitsByType(unitType){
 function drawUnits(){
 	
 	// draw all units, castles first:
-	drawUnitsByType("castle");
-	drawUnitsByType("soldier");
+	drawUnitsByInternalType("castle");
+	drawUnitsByInternalType("soldier");
+	drawUnitsByInternalType("boat");
 	
 	let pulseOffsetX = 10+(-8*pulseScale(0,2, PULSE_SPEED));
 	
@@ -7238,7 +7334,7 @@ function drawUnits(){
 
 			//const data = SOLDIER_DATA[unit.type] || CASTLE_DATA[unit.type];
 			
-			if(unit.internalType == 'soldier'){
+			if(unitTypeCanMove(unit.type)){
 				if(currentTurnPlayer.playerIndex === unit.ownerIndex){
 					// draw yellow arrow sign:
 					if (!unit.hasMoved) {
@@ -7805,7 +7901,8 @@ function drawMoveDirectionsOverlay() {
 
 	for (const unit of gameState.units) {
 		// only show my player soldiers that havent moved yet:
-		if(unit.internalType !== 'soldier' ||
+		if(!unitTypeCanMove(unit.type) ||
+		//if(unit.internalType !== 'soldier' ||
 			unit.ownerIndex !== localPlayer.playerIndex ||
 			unit.hasMoved){
 			continue;
@@ -8214,6 +8311,7 @@ function handleTouchStart(e) {
 		// close build popup if clicked outside while not building an unit:
 		const touchedOutside =
 			!buildPopup.contains(target) &&
+			!buildOtherBtn.contains(target) &&
 			!buildSoldierBtn.contains(target) &&
 			!buildCastleBtn.contains(target);
 
@@ -8469,7 +8567,8 @@ function hasUnmovedUnits(){
 	for(let i = 0; i < gameState.units.length; i++){
 		let unit = gameState.units[i];
 
-		if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+		if(unitTypeCanMove(unit.type) && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+		//if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
 			return true;
 		}
 	}
@@ -8515,6 +8614,7 @@ function updateGameUI() {
 	if(!REPLAY_ENABLED){
 		// Update buttons
 		const canPlay = isMyTurn() && !myPlayer.isSpectator;
+		buildOtherBtn.disabled = !canPlay;
 		buildSoldierBtn.disabled = !canPlay;
 		buildCastleBtn.disabled = !canPlay;
 		sellUnitBtn.disabled = true;
@@ -8676,6 +8776,7 @@ function updateSelectedPoolUi(){
 	// disable by default, enable later:
 	buildSoldierBtn.classList.add("disabled");
 	buildCastleBtn.classList.add("disabled");
+	buildOtherBtn.classList.add("disabled");
 	
 	if(selectedPool){
 		console.warn("selectedPool:");
@@ -8692,6 +8793,9 @@ function updateSelectedPoolUi(){
 		}
 		if(selectedPool.totalSavings >= minCastleCost){
 			buildCastleBtn.classList.remove("disabled");
+		}
+		if(selectedPool.totalSavings >= minOtherCost){
+			buildOtherBtn.classList.remove("disabled");
 		}
 
 		showPoolInfo();
@@ -8814,37 +8918,77 @@ function handleHexClick(hex) {
 
 		// --- PLACING A UNIT ---
 		if (placingUnit) {
+			
+			
 			let poolHex = getSelectedPoolHex();
 			console.log("handleHexClick: placingUnit poolHex:");
 			console.log(poolHex);
+			
+			if(isTypeBoat(placingUnit.type)){
+				
+				updatePools = false;
+				
+				if(selectedUnit){
+					let originPoolHex = {q:selectedUnit.q, r:selectedUnit.r};
+				
+					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+					
+					if (buildCheck.valid) {
+						
 
-			const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
-			if (buildCheck.valid) {
-				sendToHost({
-					type: ACTION.action_build,
-					unitType: placingUnit.type,
-					q: hex.q,
-					r: hex.r,
-					poolHex: poolHex, // remember first hex from selected pool.
-				});
-				
-				
-				// update here before return or it wont be updated.
-				if(updatePools){
-					updateSelectedPoolInfo(hex);
-					updatePools = false;
+						sendToHost({
+							type: ACTION.action_build,
+							unitType: placingUnit.type,
+							q: hex.q,
+							r: hex.r,
+							poolHex: originPoolHex, // selectedUnit hex pool loses the money.
+						});
+						
+						// update here before return or it wont be updated.
+						if(updatePools){
+							updateSelectedPoolInfo(originPoolHex);
+							updatePools = false;
+						}
+					}else{
+						playSound('protect');
+					}
 				}
-			} else {
-				if(buildCheck.reason && buildCheck.reason === "low_level"){
-					shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, getUnitLevel(placingUnit.type));
-					shieldingStartTime = msNowFloor();
+
+			}else{
+				// type is soldier or castle.
+				
+				const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+				
+				if (buildCheck.valid) {
+					
+
+					sendToHost({
+						type: ACTION.action_build,
+						unitType: placingUnit.type,
+						q: hex.q,
+						r: hex.r,
+						poolHex: poolHex, // remember first hex from selected pool.
+					});
+					
+					// update here before return or it wont be updated.
+					if(updatePools){
+						updateSelectedPoolInfo(hex);
+						updatePools = false;
+					}
+				} else {
+					if(buildCheck.reason && buildCheck.reason === "low_level"){
+						shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, getUnitLevel(placingUnit.type));
+						shieldingStartTime = msNowFloor();
+					}
+					playSound('protect');
 				}
-				playSound('protect');
 			}
+			
 			placingUnit = null; // "deselect", must do that because there is no cancel button (yet?)
 			updateHighlights();
 			
 
+			buildOtherBtn.classList.remove("cancel");
 			buildSoldierBtn.classList.remove("cancel");
 			buildCastleBtn.classList.remove("cancel");
 			
@@ -8853,10 +8997,10 @@ function handleHexClick(hex) {
 		
 		// --- MOVING A UNIT ---
 		if (selectedUnit) {
+	
+	
+			console.log("handleHexClick: selectedUnit");
 			
-			let poolHex = getSelectedPoolHex();
-			console.log("handleHexClick: selectedUnit poolHex:");
-			console.log(poolHex);
 			
 			let deselected = false;
 
@@ -8867,17 +9011,11 @@ function handleHexClick(hex) {
 				deselected = true;
 			}
 			if(!deselected){
-				// Check if clicking a valid move hex
-				// validMoveHexes = highlighted move area.
-				// poolHex guaranteed to be in validMoveHexes.
-				const isValidMove = validMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
 				
-				console.warn("isValidMove:",isValidMove);
-				//console.log("isValidMove: "+isValidMove);
-			
-				if (isValidMove) {
+				if(isTypeBoat(selectedUnit.type)){
+					updatePools = false;
 					
-					
+
 					let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
 					let moveCheck = isMoveValid(unitCheck, { q: hex.q, r: hex.r }, myPlayer);
 					
@@ -8892,7 +9030,6 @@ function handleHexClick(hex) {
 						unitId: selectedUnit.id,
 						toQ: hex.q,
 						toR: hex.r,
-						poolHex: poolHex,
 					});
 					
 					if(moveCheck.valid){
@@ -8905,36 +9042,89 @@ function handleHexClick(hex) {
 						updatePools = false; // ensure it wont update pools with the hex we try to move onto.
 						sellUnitBtn.disabled = false;
 					}
-					//deselectHex();
-				} else {
-					// Clicked somewhere else, check for new selection
-					if(isLandTile){
-						const isInvalidMove = invalidMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
-						if(isInvalidMove){
-							shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, selectedUnit.level);
-							shieldingStartTime = msNowFloor();
-							sellUnitBtn.disabled = false;
-							console.log("clicked hex:");
-							console.log(hex);
-							console.log("selected unit hex:");
-							console.log({q:selectedUnit.q, r:selectedUnit.r});
-							updateSelectedPoolInfo({q:selectedUnit.q, r:selectedUnit.r});
-							updatePools = false; // ensure it wont update pools with the hex we try to move onto.
-							
-							playSound('protect');
-						}
+				}else{
+					let poolHex = getSelectedPoolHex();
+					console.log("handleHexClick: selectedUnit: poolHex");
+					console.log(poolHex);
+					
+					// Check if clicking a valid move hex
+					// validMoveHexes = highlighted move area.
+					// poolHex guaranteed to be in validMoveHexes.
+					const isValidMove = validMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
+					
+					console.warn("isValidMove:",isValidMove);
+					//console.log("isValidMove: "+isValidMove);
+				
+					if (isValidMove) {
 						
-						const unitOnHex = getUnitAt(hex.q, hex.r);
-						if(unitOnHex){
-							if (unitOnHex.ownerIndex === localPlayer.playerIndex) {
-								if(unitOnHex.internalType === 'soldier' && !unitOnHex.hasMoved){
-									selectedUnit = unitOnHex; // Select new unit
-									sellUnitBtn.disabled = false;
-									selectedHex = hex;
-									playSound('startmove');
+						
+						let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
+						let moveCheck = isMoveValid(unitCheck, { q: hex.q, r: hex.r }, myPlayer);
+						
+						if(!moveCheck.valid){
+							playSound('protect');
+							console.warn("playsound protect");
+						}else{
+							console.warn("isMoveValid = true");
+						}
+						sendToHost({
+							type: ACTION.action_move,
+							unitId: selectedUnit.id,
+							toQ: hex.q,
+							toR: hex.r,
+							poolHex: poolHex,
+						});
+						
+						if(moveCheck.valid){
+							deselectUnit();
+						}else{
+							// set selected hex to the selected unit position:
+							// caused some crash on addCost() if moved to rock first and then to tree,
+							// probably remembered the selectedHex as the rock hex, so it failed...
+							selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
+							updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+							sellUnitBtn.disabled = false;
+						}
+						//deselectHex();
+					} else {
+						// Clicked somewhere else, check for new selection
+						if(isLandTile){
+							const isInvalidMove = invalidMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
+							if(isInvalidMove){
+								shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, selectedUnit.level);
+								shieldingStartTime = msNowFloor();
+								sellUnitBtn.disabled = false;
+								console.log("clicked hex:");
+								console.log(hex);
+								console.log("selected unit hex:");
+								console.log({q:selectedUnit.q, r:selectedUnit.r});
+								updateSelectedPoolInfo({q:selectedUnit.q, r:selectedUnit.r});
+								updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+								
+								playSound('protect');
+							}
+							
+							const unitOnHex = getUnitAt(hex.q, hex.r);
+							if(unitOnHex){
+								if (unitOnHex.ownerIndex === localPlayer.playerIndex) {
+									
+									if(unitTypeCanMove(unitOnHex.type) && !unitOnHex.hasMoved){
+									//if(unitOnHex.internalType === 'soldier' && !unitOnHex.hasMoved){
+										selectedUnit = unitOnHex; // Select new unit
+										sellUnitBtn.disabled = false;
+										selectedHex = hex;
+										playSound('startmove');
+									}
+								}else{
+									// deselect when clicking enemy unit that was not protected:
+									if(!isInvalidMove){
+										deselectUnit(); // Deselect
+										selectedHex = hex;
+										//console.log("deselected");
+									}
 								}
 							}else{
-								// deselect when clicking enemy unit that was not protected:
+								// deselect when clicked just land that was not protected:
 								if(!isInvalidMove){
 									deselectUnit(); // Deselect
 									selectedHex = hex;
@@ -8942,33 +9132,31 @@ function handleHexClick(hex) {
 								}
 							}
 						}else{
-							// deselect when clicked just land that was not protected:
-							if(!isInvalidMove){
-								deselectUnit(); // Deselect
-								selectedHex = hex;
-								//console.log("deselected");
-							}
+							deselectUnit(); // Deselect
+							deselectHex();
 						}
-					}else{
-						deselectUnit(); // Deselect
-						deselectHex();
 					}
 				}
 			}
 		} else {
 			// --- SELECTING AN UNIT ---
 			
-			if(isLandTile){
+			// allow selecting any unit
+			//if(isLandTile){
 				const unitOnHex = getUnitAt(hex.q, hex.r);
 				
 				if (unitOnHex && unitOnHex.ownerIndex === localPlayer.playerIndex) {
-					// allow only selecting soldiers
-					if(unitOnHex.internalType === 'soldier'){
+					// allow only selecting movable units
+					if(unitTypeCanMove(unitOnHex.type)){
+					//if(unitOnHex.internalType === 'soldier'){
 						if(!unitOnHex.hasMoved){
 							//console.log("selected new unit");
 							selectedUnit = unitOnHex;
 							sellUnitBtn.disabled = false;
 							selectedHex = hex;
+							
+							console.warn("selectedUnit");
+							console.warn(selectedUnit);
 							if(!selectedUnit.hasMoved){
 								playSound('startmove');
 							}
@@ -8984,16 +9172,22 @@ function handleHexClick(hex) {
 					}
 				} else {
 					// no unit or not my unit
-					deselectUnit();
-					selectedHex = hex;
+					if(isLandTile){
+						deselectUnit();
+						selectedHex = hex;
+					}else{
+						deselectUnit();
+						deselectHex();
+					}
 				}
-			}else{
-				// was water tile
-				deselectUnit(); // Deselect
-				deselectHex();
-			}
+			//}else{
+			//	// was water tile
+			//	deselectUnit(); // Deselect
+			//	deselectHex();
+			//}
 		}
 		
+	
 		if(updatePools){
 			updateSelectedPoolInfo(hex);
 		}
@@ -9237,23 +9431,33 @@ function updateHighlights() {
 
 function openBuildPopup(type) {
 	placingUnit = null;
-	deselectUnit();
+	
+	// dont deselect unit if building boats.
+	// todo: make better check for boats only...
+	if(type !== "other"){
+		deselectUnit();
+	}
 	//deselectHex();
 	
-	const data = (type === 'soldier') ? SOLDIER_DATA : CASTLE_DATA;
+	const data = UNITS[type];//(type === 'soldier') ? SOLDIER_DATA : CASTLE_DATA;
+	console.warn(data);
 	const poolSavings = getSelectedPoolSavings();
 	
 	buildSoldierBtn.classList.remove("cancel");
 	buildCastleBtn.classList.remove("cancel");
+	buildOtherBtn.classList.remove("cancel");
 	
 	let buildprefix = "Buy";
 	let buildsuffix = type;
-	if(type == "castle"){
-		buildprefix = "Build";
+	if(type === "castle"){
+		buildprefix = "Build"; // build castle
 		buildsuffix = "castle";
-	}else if(type == "soldier"){
-		buildprefix = "Recruit";
+	}else if(type === "soldier"){
+		buildprefix = "Recruit"; // recruit warrior
 		buildsuffix = "warrior";
+	}else if(type === "other"){
+		buildprefix = "Build"; // build item
+		buildsuffix = "item";
 	}
 	buildPopupTitle.textContent = `${buildprefix} ${buildsuffix}`;
 	buildPopupList.innerHTML = '';
@@ -9261,10 +9465,16 @@ function openBuildPopup(type) {
 	for (const key in data) {
 		const item = data[key];
 		//const canAfford = poolSavings >= item.cost;
-		const canAfford = canAffordCheck(poolSavings, item.cost);
+		let canAfford = canAffordCheck(poolSavings, item.cost);
+		// boats can be built only if an unit was selected:
+		if(item.type === "boat" && !selectedUnit){
+			canAfford = false;
+		}
 		const itemEl = document.createElement('div');
 		itemEl.className = 'build-item';
-		if (!canAfford) itemEl.classList.add('disabled');
+		if (!canAfford){
+			itemEl.classList.add('disabled');
+		}
 		let imagePath = getImagePath(item);
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
@@ -9290,6 +9500,8 @@ function openBuildPopup(type) {
 					buildSoldierBtn.classList.add("cancel");
 				}else if(type === 'castle'){
 					buildCastleBtn.classList.add("cancel");
+				}else if(type === 'other'){
+					buildOtherBtn.classList.add("cancel");
 				}
 				//buildPopup.style.display = 'none';
 				hideBuildPopup();
@@ -9303,30 +9515,51 @@ function openBuildPopup(type) {
 }
 
 
-function unitExists(unitType){
-	if(SOLDIER_DATA[unitType] || CASTLE_DATA[unitType]){
-		return true;
+function getUnitInfo(unitType){
+	return UNITS.ALL[unitType] ?? null;
+}
+
+function unitTypeExists(unitType){
+	for (const key in UNITS.ALL) {
+		if(key === unitType){
+			return true;
+		}
 	}
+	//if(SOLDIER_DATA[unitType] || CASTLE_DATA[unitType]){
+	//	return true;
+	//}
 	return false;
 }
 
 function getUnitLevel(unitType){
-	if(SOLDIER_DATA[unitType]){
-		return SOLDIER_DATA[unitType].level;
+	let unitInfo = getUnitInfo(unitType);
+	if(unitInfo){
+		return unitInfo.level;
 	}
-	if(CASTLE_DATA[unitType]){
-		return CASTLE_DATA[unitType].level;
-	}
+	//if(SOLDIER_DATA[unitType]){
+	//	return SOLDIER_DATA[unitType].level;
+	//}
+	//if(CASTLE_DATA[unitType]){
+	//	return CASTLE_DATA[unitType].level;
+	//}
 	return 0; // fallback.
 }
 
 function getUnitCost(unitType){
+	let unitInfo = getUnitInfo(unitType);
+	console.warn("unitInfo", unitType);
+	console.warn(unitInfo);
+	if(unitInfo){
+		return unitInfo.cost;
+	}
+	/*
 	if(SOLDIER_DATA[unitType]){
 		return SOLDIER_DATA[unitType].cost;
 	}
 	if(CASTLE_DATA[unitType]){
 		return CASTLE_DATA[unitType].cost;
 	}
+	*/
 	return 0; // fallback.
 }
 
@@ -9334,10 +9567,16 @@ function getUnitCost(unitType){
 
 // iscastle is_castle
 function isTypeCastle(unitType){
-	return !!CASTLE_DATA[unitType];
+	return getUnitInfo(unitType)?.type === 'castle';
+	//return !!CASTLE_DATA[unitType];
 }
 function isTypeSoldier(unitType){
-	return !!SOLDIER_DATA[unitType];
+	return getUnitInfo(unitType)?.type === 'soldier';
+	//return !!SOLDIER_DATA[unitType];
+}
+function isTypeBoat(unitType){
+	return getUnitInfo(unitType)?.type === 'boat';
+	//return !!SOLDIER_DATA[unitType];
 }
 
 function isCastle(unit){
@@ -9429,11 +9668,26 @@ function badMove(reason){
 // --- HOST-SIDE VALIDATION ---
 
 function isMoveValid(unit, toHex, player) {
+	if(isTypeBoat(unit.type)){
+		if (unit.hasMoved){
+			return badMove('Unit has already moved.');
+		}
+		if(!unitTypeCanMove(unit.type)){
+			return badMove('Unit type cannot move.');
+		}
+		if(getTileAt(toHex.q, toHex.r)){
+			return badMove('not_water');
+		}
+		return goodMove();
+	}
+	
+	
 	if (unit.hasMoved){
 		return badMove('Unit has already moved.');
 	}
-	if(unit.internalType === 'castle'){
-		return badMove('Cannot move castles.');
+	if(!unitTypeCanMove(unit.type)){
+	//if(unit.internalType === 'castle'){
+		return badMove('Unit type cannot move.');
 	}
 
 	const toTile = getTileAt(toHex.q, toHex.r);
@@ -9534,6 +9788,22 @@ let placementframe = 0;
 
 // isvalidplacement
 function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
+	console.warn("isPlacementValid CALLED");
+	if(isTypeBoat(unitType)){
+		console.warn(unitType);
+		if(!unitTypeExists(unitType)){
+			console.error("unit_not_exist", unitType);
+			return badMove("unit_not_exist"); // unit type doesnt exist!
+		}
+		// todo: add this check too:
+		//if (!canAffordCheck(actionPool.totalSavings, unitCost)) {
+		//	return badMove("not_enough_money");
+		//}
+		if(getTileAt(hex.q, hex.r)){
+			return badMove('not_water');
+		}
+		return goodMove('move');
+	}
 	//placementframe++;
 	//console.log("placementframe: "+placementframe);
 
@@ -9542,7 +9812,8 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	//console.warn("isPlacementValid: selectedPool");
 	//console.warn(selectedPool);
 	
-	if(!unitExists(unitType)){
+	if(!unitTypeExists(unitType)){
+		console.error("unit_not_exist", unitType);
 		return badMove("unit_not_exist"); // unit type doesnt exist!
 	}
 	
@@ -9550,10 +9821,18 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	let unitCost = getUnitCost(unitType);
 
 
-	let actionPool = findSelectedPool(poolHex, findEconomyPools(player.playerIndex, log_enabled), player.playerIndex);
+	let actionPool;
+
+	
+	if(localPlayer.isHost){
+		// weird, before this worked fine with clients too, now only host can use this.
+		actionPool = findSelectedPool(poolHex, findEconomyPools(player.playerIndex, log_enabled), player.playerIndex);
+	}else{
+		actionPool = findSelectedPool(poolHex, localPlayerPools, player.playerIndex);
+	}
+	
 	
 	if (!canAffordCheck(actionPool.totalSavings, unitCost)) {
-		console.log("not_enough_money");
 		return badMove("not_enough_money");
 	}
 	
@@ -9604,6 +9883,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 			if (!isNeighborOwned){
 				return badMove("out_of_range");
 			}else{
+				// only soldiers can kill other units
 				if(isTypeSoldier(unitType)){
 					// if it was in build radius:
 					let shieldLevel = getShieldLevelFromTile(tile, player.playerIndex);
@@ -9687,7 +9967,7 @@ function isAiPlayer(playerIndex){
 
 // gets the amount of money you get by selling a soldier.
 function getUnitSellPrice(unit){
-	let unitInfo = SOLDIER_DATA[unit.type];
+	let unitInfo = getUnitInfo(unit.type);//SOLDIER_DATA[unit.type];
 	if(unitInfo){
 		return unitInfo.sell;
 	}
@@ -9808,7 +10088,7 @@ function executeAction(playerId, action) {
 		case ACTION.action_move: {
 			// move unit
 			
-			//console.log("executeAction action_move");
+			console.warn("executeAction action_move");
 			
 			const { unitId, toQ, toR, poolHex } = action;
 			console.log("poolHex");
@@ -9818,401 +10098,190 @@ function executeAction(playerId, action) {
 			let unitCopy = {...unit}; // used when killing current unit.
 			if (!unit || unit.ownerIndex !== playerIndex) return;
 			
-			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
-
-
-
 			const moveCheck = isMoveValid(unit, { q: toQ, r: toR }, player);
+			
 			if (moveCheck.valid) {
-				const fromQ = unit.q;
-				const fromR = unit.r;
-				const toTile = getTileAt(toQ, toR);
-				const oldOwnerIndex = toTile.ownerIndex;
-				const oldObject = toTile.object;
-				const oldSavings = toTile.savings;
-				
-				let hexClaimed = false;
-				
-				actionForUndo = {
-					type: 'move',
-					unitId: unit.id,
-					fromQ, fromR,
-					toQ, toR,
-					didClaim: oldOwnerIndex !== playerIndex,
-					oldSavings: oldSavings,
-					oldOwnerIndex: oldOwnerIndex,
-					clearedObject: oldObject,
-					poolHex: poolHex,
-				};
-				
-				let killMovedUnit = false;
-				
-				// add all tile changes into this, so only one tile_changed update is needed:
-				let tileChangedUpdates = [];
+				console.warn("executeAction action_move moveCheck", moveCheck);
 				
 				
-				if (moveCheck.action === 'attack') {
-					const targetUnit = moveCheck.target;
-					actionForUndo.killedUnit = { ...targetUnit }; // Store copy
-					//gameState.units = gameState.units.filter(u => u.id !== targetUnit.id);
-					updates.push({ type: ACTION.unit_removed, unitId: targetUnit.id });
-					if(!isAiPlayer(playerIndex)){
-						if(CASTLE_DATA[targetUnit.type]){
-							sounds.push({name:'killCastle', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
-						}else{
-							sounds.push({name:'kill', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
-						}
-					}
-					
-					//console.warn("moveCheck.action === 'attack'");
-				}
-				
-				//console.warn("actionForUndo1");
-				//console.warn(actionForUndo);
-				
-				// Move unit
-				unit.q = toQ;
-				unit.r = toR;
-				unit.hasMoved = 1;
-				updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: toQ, r: toR, hasMoved: 1 });
-				
-				// Claim hex
-				if (toTile.ownerIndex !== playerIndex) {
-					setTileOwnerByIndex(toTile, playerIndex);
-					toTile.savings = 0; // update host data.
+				if(isTypeBoat(unit.type)){
+					const fromQ = unit.q;
+					const fromR = unit.r;
 
-					tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
-					hexClaimed = true;
-					
-					if(!isAiPlayer(playerIndex)){
-						if (!toTile.object) {
-							if(!actionForUndo.killedUnit){
-								sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
-							}
-						}
-					}
-				}else{
-					// if moved inside own pool, play also sound.
-					if(!isAiPlayer(playerIndex)){
-						if (!toTile.object) {
-							if(!actionForUndo.killedUnit){
-								sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
-							}
-						}
-					}
-				}
-				
-				if (toTile.object) {
-
-	
-					if(toTile.object === 'tree'){
-						sounds.push({name:'claimTree', q: toQ, r: toR, action: action.type});
-					}else if(toTile.object === 'grass'){
-						sounds.push({name:'claimGrass', q: toQ, r: toR, action: action.type});
-					}else if(toTile.object === 'rock2'){
-						sounds.push({name:'claimRock', q: toQ, r: toR, action: action.type});
-					}else if(toTile.object === 'mine1'){
-						sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
-					}else{
-						if(!actionForUndo.killedUnit){
-							sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
-						}
-					}
-				
-					
-					
-					// add tree claiming money:
-					let moneyAdded = 0;
-					if(toTile.object === 'tree'){
-						moneyAdded = 1;
-					}else if(toTile.object === 'rock2'){
-						moneyAdded = 5;
-					}
-					
-					// handle mines:
-					if(toTile.object === 'mine1'){
-						killMovedUnit = true;
-
-						/*
-						toTile.object = 'dead'; // Turn to dead (crosses)
-						toTile.actionTurnNumber = gameState.turn.turnNumber;
-						
-						// add animation info for host:
-						toTile.creationTime = msNowFloor(); 
-						toTile.animationFinished = 0; // ensure no animation will be visible.
-						toTile.animationStyle = 1; // 1 = appear from bottom to up, 2 = appear from zero size to normal size
-						
-						updates.push({ 
-							type: ACTION.object_changed, 
-							q: toQ, 
-							r: toR, 
-							object: toTile.object,
-							animationStyle: toTile.animationStyle,
-						});
-						*/
-					}
-					
-					if(moneyAdded){
-						addCost(actionPool, moneyAdded, poolHex, action.type);
-					}
-					
-					toTile.object = null;
-
-					tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: null, FText: moneyAdded });
-				}
-				
-				if(killMovedUnit){
-					actionForUndo.killedUnit = unitCopy; // Store copy
-					updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
-				}
-				
-				// push to updates all tile_changed updates that were merged into one:
-				pushMergedUpdates(updates, tileChangedUpdates);
-				
-				/*
-				// action_move:
-				// if claimed a tile, check if anyone dies:
-				if(hexClaimed && oldOwnerIndex !== -1){ // nobody can die if claimed non-owned land.
-					checkPlayers.push(oldOwnerIndex);
-					
-					// old owner = oldOwnerIndex
-					let pools = findEconomyPools(oldOwnerIndex);
-					let killdata = calculateBalanceAndKillSoldiers(pools);
-					
-					if(killdata.batchActions && killdata.batchActions.length > 0){
-						let batchActions = killdata.batchActions;
-						let poolsAfter = killdata.poolsAfter;
-						let poolsBefore = killdata.poolsBefore;
-						actionForUndo.batchActions = batchActions;
-						actionForUndo.poolsBefore = poolsBefore;
-						updates.push(...batchActions);
-						
-						sounds.push({ type: ACTION.sound, name: "diedByStarving", q:0, r:0, playerIndex: -1, action: ACTION.action_move});
-					}
-					// put batchActions into undo history with the current actionForUndo,
-					// maybe add new key for it like actionForUndo.poolActions = batchActions ?
-					// and then put those batchActions into updates so they will be sent to all players?
-					// for undo it has to remember the pool before changing it, so when undoing, it has to revert back to
-					// savings before soldiers died (and make soldiers alive again and remove the 'dead' object).
-				}
-				
-				*/
-			}
-			break;
-		}
-		
-		case ACTION.action_build: {
-			// build unit
-			
-			
-			//console.log("executeAction action_build");
-			
-			const { unitType, q, r, poolHex } = action;
-			console.log("poolHex");
-			console.log(poolHex);
-			
-			const data = SOLDIER_DATA[unitType] || CASTLE_DATA[unitType];
-			if (!data) return;
-			
-			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
-
-
-			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex);
-
-			if (buildCheck.valid) {
-
-				let totalSavings = actionPool.totalSavings;
-				
-				const tile = getTileAt(q, r);
-				const oldOwnerIndex = tile.ownerIndex;
-				const oldObject = tile.object;
-				const oldSavings = tile.savings;
-				
-				if (canAffordCheck(totalSavings, data.cost)) {
-					
-					deductCost(actionPool, data.cost, poolHex, action.type);
-					
-					const newUnit = {
-						id: newUnitID(),
-						ownerIndex: playerIndex,
-						oldOwnerIndex: oldOwnerIndex,
-						q: q, 
-						r: r,
-						type: unitType,
-						level: data.level,
-						hasMoved: 1,
-						internalType: data.type,
+					actionForUndo = {
+						type: 'move',
+						unitId: unit.id,
+						fromQ, 
+						fromR,
+						toQ, 
+						toR,
 					};
-					let unitCopy = {...newUnit}; // used for mines killing.
 					
-					let killAddedUnit = false;
+					// Move unit
+					unit.q = toQ;
+					unit.r = toR;
+					unit.hasMoved = 1;
+					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: toQ, r: toR, hasMoved: 1 });
 					
-					//console.log("action_build: gameState.units.push(newUnit);");
-					//console.log(newUnit);
+					sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
 					
+				}else{
+
+					let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
+
+					const fromQ = unit.q;
+					const fromR = unit.r;
+					const toTile = getTileAt(toQ, toR);
+					const oldOwnerIndex = toTile.ownerIndex;
+					const oldObject = toTile.object;
+					const oldSavings = toTile.savings;
+					
+					let hexClaimed = false;
+					
+					actionForUndo = {
+						type: 'move',
+						unitId: unit.id,
+						fromQ, 
+						fromR,
+						toQ, 
+						toR,
+						didClaim: oldOwnerIndex !== playerIndex,
+						oldSavings: oldSavings,
+						oldOwnerIndex: oldOwnerIndex,
+						clearedObject: oldObject,
+						poolHex: poolHex,
+					};
+					
+					let killMovedUnit = false;
+					
+					// add all tile changes into this, so only one tile_changed update is needed:
 					let tileChangedUpdates = [];
 					
-					//gameState.units.push(newUnit); // if used here then host gets the unit double!
 					
-					let didClaim = false;
-					let didClaimEnemy = false;
-
-					
-					let playMoveUnit = false;
-					let moveUnitType = 0; // 0 = move, 1 = build
-					if(isCastle(newUnit)){
-						moveUnitType = 1;
-					}
-					
-					if (isSoldier(newUnit) && tile.ownerIndex !== playerIndex) {
-						didClaim = true;
-						if(tile.ownerIndex !== -1){
-							didClaimEnemy = true;
-						}
-						setTileOwnerByIndex(tile, playerIndex);
-						tile.savings = 0; // update to host data.
-						
-
-						tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, ownerIndex: playerIndex });
-						
-						if(!isAiPlayer(playerIndex)){
-							if (!tile.object) {
-								playMoveUnit = true;
-								//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
-							}
-						}
-					}else{
-						if(!isAiPlayer(playerIndex)){
-							if (!tile.object) {
-								playMoveUnit = true;
-								//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
-							}
-						}
-					}
-					
-					actionForUndo = {
-						type: 'build', 
-						unit: newUnit, 
-						cost: data.cost, 
-						didClaim: didClaim, 
-						oldSavings: oldSavings,
-						oldOwnerIndex: oldOwnerIndex,
-						clearedObject: null,
-						poolHex: poolHex,
-						actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
-					};
-					
-					
-					actionForUndo.clearedObject = null;
-					
-					
-					if (tile.object) {
-						
-						
-						if(moveUnitType == 0){
-							if(tile.object === 'tree'){
-								sounds.push({name:'claimTree', q: q, r: r, action: action.type});
-							}else if(tile.object === 'grass'){
-								sounds.push({name:'claimGrass', q: q, r: r, action: action.type});
-							}else if(tile.object === 'rock2'){
-								sounds.push({name:'claimRock', q: q, r: r, action: action.type});
-							}else if(tile.object === 'mine1'){
-								sounds.push({name:'claimMine', q: q, r: r, action: action.type});
-							}else{
-								playMoveUnit = true;
-								//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
-							}
-						}else{
-							playMoveUnit = true;
-						}
-					
-						
-
-						// add tree claiming money:
-						let moneyAdded = 0;
-						if(tile.object === 'tree'){
-							moneyAdded = 1;
-						}else if(tile.object === 'rock2'){
-							moneyAdded = 5;
-						}
-						
-						// handle mines:
-						if(tile.object === 'mine1'){
-							//actionForUndo.killedUnit = unitCopy; // Store copy
-							//updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
-							
-							killAddedUnit = true;
-						}
-						if(moneyAdded){
-							addCost(actionPool, moneyAdded, poolHex, action.type);
-						}
-						
-						actionForUndo.clearedObject = tile.object;
-						tile.object = null;
-
-						tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, object: null, FText: moneyAdded });
-					}
-					/*
-					actionForUndo = {
-						type: 'build', 
-						unit: newUnit, 
-						cost: data.cost, 
-						didClaim: didClaim, 
-						oldSavings: oldSavings,
-						oldOwnerIndex: oldOwnerIndex,
-						clearedObject: clearedObject,
-						poolHex: poolHex,
-						actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
-					};
-					*/
-
-					
-					if (buildCheck.action === 'attack') {
-						const targetUnit = buildCheck.target;
+					if (moveCheck.action === 'attack') {
+						const targetUnit = moveCheck.target;
 						actionForUndo.killedUnit = { ...targetUnit }; // Store copy
 						//gameState.units = gameState.units.filter(u => u.id !== targetUnit.id);
 						updates.push({ type: ACTION.unit_removed, unitId: targetUnit.id });
-						
 						if(!isAiPlayer(playerIndex)){
-							if(CASTLE_DATA[targetUnit.type]){
+							if(targetUnit.internalType === 'castle'){ // CASTLE_DATA[targetUnit.type]
 								sounds.push({name:'killCastle', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
 							}else{
 								sounds.push({name:'kill', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
 							}
-							playMoveUnit = false;
 						}
-					}
-					
-					if(playMoveUnit){
-						if(moveUnitType){
-							sounds.push({name:'build'+newUnit.level, q: q, r: r, action: action.type});
-						}else{
-							sounds.push({name:'moveunit', q: q, r: r, action: action.type});
-						}
-					}
 						
+						//console.warn("moveCheck.action === 'attack'");
+					}
 					
-					console.warn("actionForUndo");
-					console.warn(actionForUndo);
+					//console.warn("actionForUndo1");
+					//console.warn(actionForUndo);
 					
-					// if batchActions kills your unit, should just add the cross instead?
-					// calculateBalanceAndKillSoldiers doesnt take into account the new unit wages...
-					// ...most probably. so it should be taken as parameter to
-					// calculateBalanceAndKillSoldiers() ?
-					//updates.push({ type: ACTION.unit_added, unit: newUnit });
+					// Move unit
+					unit.q = toQ;
+					unit.r = toR;
+					unit.hasMoved = 1;
+					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: toQ, r: toR, hasMoved: 1 });
 					
+					// Claim hex
+					if (toTile.ownerIndex !== playerIndex) {
+						setTileOwnerByIndex(toTile, playerIndex);
+						toTile.savings = 0; // update host data.
+
+						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
+						hexClaimed = true;
+						
+						if(!isAiPlayer(playerIndex)){
+							if (!toTile.object) {
+								if(!actionForUndo.killedUnit){
+									sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+								}
+							}
+						}
+					}else{
+						// if moved inside own pool, play also sound.
+						if(!isAiPlayer(playerIndex)){
+							if (!toTile.object) {
+								if(!actionForUndo.killedUnit){
+									sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+								}
+							}
+						}
+					}
 					
-					let addedUnitWasKilled = false;
+					if (toTile.object) {
+
+		
+						if(toTile.object === 'tree'){
+							sounds.push({name:'claimTree', q: toQ, r: toR, action: action.type});
+						}else if(toTile.object === 'grass'){
+							sounds.push({name:'claimGrass', q: toQ, r: toR, action: action.type});
+						}else if(toTile.object === 'rock2'){
+							sounds.push({name:'claimRock', q: toQ, r: toR, action: action.type});
+						}else if(toTile.object === 'mine1'){
+							sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+						}else{
+							if(!actionForUndo.killedUnit){
+								sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+							}
+						}
+					
+						
+						
+						// add tree claiming money:
+						let moneyAdded = 0;
+						if(toTile.object === 'tree'){
+							moneyAdded = 1;
+						}else if(toTile.object === 'rock2'){
+							moneyAdded = 5;
+						}
+						
+						// handle mines:
+						if(toTile.object === 'mine1'){
+							killMovedUnit = true;
+
+							/*
+							toTile.object = 'dead'; // Turn to dead (crosses)
+							toTile.actionTurnNumber = gameState.turn.turnNumber;
+							
+							// add animation info for host:
+							toTile.creationTime = msNowFloor(); 
+							toTile.animationFinished = 0; // ensure no animation will be visible.
+							toTile.animationStyle = 1; // 1 = appear from bottom to up, 2 = appear from zero size to normal size
+							
+							updates.push({ 
+								type: ACTION.object_changed, 
+								q: toQ, 
+								r: toR, 
+								object: toTile.object,
+								animationStyle: toTile.animationStyle,
+							});
+							*/
+						}
+						
+						if(moneyAdded){
+							addCost(actionPool, moneyAdded, poolHex, action.type);
+						}
+						
+						toTile.object = null;
+
+						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: null, FText: moneyAdded });
+					}
+					
+					if(killMovedUnit){
+						actionForUndo.killedUnit = unitCopy; // Store copy
+						updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+					}
+					
+					// push to updates all tile_changed updates that were merged into one:
+					pushMergedUpdates(updates, tileChangedUpdates);
 					
 					/*
-					// action_build:
-					// if claimed enemy tile, check if any enemy dies:
-					// Note: must check for attacking player pools too.
-					if(didClaimEnemy){ // (not non-owned tile.)
-						// check if the enemy tile owner will die.
+					// action_move:
+					// if claimed a tile, check if anyone dies:
+					if(hexClaimed && oldOwnerIndex !== -1){ // nobody can die if claimed non-owned land.
 						checkPlayers.push(oldOwnerIndex);
 						
-						// check enemy pools:
 						// old owner = oldOwnerIndex
 						let pools = findEconomyPools(oldOwnerIndex);
 						let killdata = calculateBalanceAndKillSoldiers(pools);
@@ -10233,89 +10302,359 @@ function executeAction(playerId, action) {
 						// for undo it has to remember the pool before changing it, so when undoing, it has to revert back to
 						// savings before soldiers died (and make soldiers alive again and remove the 'dead' object).
 					}
-					if(isSoldier(newUnit)){
-						// if placed soldier, check if that owner will die even if not claimed any hex.
-						checkPlayers.push(playerIndex);
-						
-						// if placed soldier, check if your soldiers will die:
-						let pools = findEconomyPools(playerIndex);
-						let killdata = calculateBalanceAndKillSoldiers(pools);
-						
-						if(killdata.batchActions && killdata.batchActions.length > 0){
-							let batchActions = killdata.batchActions;
-							
-							addedUnitWasKilled = true;
-							
-							
-							let poolsAfter = killdata.poolsAfter;
-							let poolsBefore = killdata.poolsBefore;
-							
-							if(!actionForUndo.batchActions){
-								actionForUndo.batchActions = [];
-							}
-							actionForUndo.batchActions.push(...batchActions);
-
-							//updates.push({ type: ACTION.unit_added, unit: newUnit });
-							
-							actionForUndo.poolsBefore = poolsBefore;
-							updates.push(...batchActions);
-							
-							sounds.push({ type: ACTION.sound, name: "diedByStarving", q:0, r:0, playerIndex: -1, action: ACTION.action_move});
-						}
-					}
+					
 					*/
+				}
+			}
+			break;
+		}
+		
+		case ACTION.action_build: {
+			// build unit
+			
+			
+			//console.log("executeAction action_build");
+			
+			const { unitType, q, r, poolHex } = action;
+			console.log("poolHex");
+			console.log(poolHex); // from which pool
+			console.log("q, r");
+			console.log(q, r); // to which hex
+			
+			const data = getUnitInfo(unitType);//SOLDIER_DATA[unitType] || CASTLE_DATA[unitType];
+			if (!data) return;
+			
+			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
+
+
+			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex);
+
+			if (buildCheck.valid) {
+
+				let totalSavings = actionPool.totalSavings;
+				
+				
+				if (canAffordCheck(totalSavings, data.cost)) {
 					
-					// TODO... fix this: the newly built unit doesnt die with the others:
-					// for undo it must know to give back the undo money.
-					// now when my units dies, this new unit stays alive.
-					actionForUndo.addedUnitWasKilled = addedUnitWasKilled;
+					deductCost(actionPool, data.cost, poolHex, action.type);
 					
-					updates.push({ type: ACTION.unit_added, unit: newUnit });
-					
-					if(killAddedUnit){
-						// dont add killed unit or it will create that unit after undo...
-						//actionForUndo.killedUnit = { ...unitCopy };
-						updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
-					}
-					
-					
-					/*
-					if(!addedUnitWasKilled){
+					if(isTypeBoat(unitType)){
+						console.warn("BOAT DETECTED");
+						
+						const newUnit = {
+							id: newUnitID(),
+							ownerIndex: playerIndex,
+							q: q, 
+							r: r,
+							type: unitType,
+							level: data.level,
+							hasMoved: 1,
+							internalType: data.type,
+						};
+						
+						actionForUndo = {
+							type: 'build', 
+							unit: newUnit, 
+							cost: data.cost, 
+							didClaim: false, 
+							poolHex: poolHex,
+							actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+						};
+						
 						updates.push({ type: ACTION.unit_added, unit: newUnit });
+						
+						sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+						
 					}else{
+						const tile = getTileAt(q, r);
+						const oldOwnerIndex = tile.ownerIndex;
+						const oldObject = tile.object;
+						const oldSavings = tile.savings;
+						
+						const newUnit = {
+							id: newUnitID(),
+							ownerIndex: playerIndex,
+							oldOwnerIndex: oldOwnerIndex,
+							q: q, 
+							r: r,
+							type: unitType,
+							level: data.level,
+							hasMoved: 1,
+							internalType: data.type,
+						};
+						let unitCopy = {...newUnit}; // used for mines killing.
+						
+						let killAddedUnit = false;
+						
+						//console.log("action_build: gameState.units.push(newUnit);");
+						//console.log(newUnit);
+						
+						let tileChangedUpdates = [];
+						
+						//gameState.units.push(newUnit); // if used here then host gets the unit double!
+						
+						let didClaim = false;
+						let didClaimEnemy = false;
 
-						// TODO: think how to fix this unit add/remove...
-						//actionForUndo.unit = null; // dont tell we added unit since we didnt.
 						
-						// kill also the added unit:
-						tile.object = 'dead'; // Turn to dead (crosses)
-						tile.actionTurnNumber = gameState.turn.turnNumber;
+						let playMoveUnit = false;
+						let moveUnitType = 0; // 0 = move, 1 = build
+						if(isCastle(newUnit)){
+							moveUnitType = 1;
+						}
 						
-						// add animation info for host:
-						tile.creationTime = msNowFloor(); 
-						tile.animationFinished = 0; // ensure no animation will be visible.
-						tile.animationStyle = 1; // 1 = appear from bottom to up, 2 = appear from zero size to normal size
+						if (isSoldier(newUnit) && tile.ownerIndex !== playerIndex) {
+							didClaim = true;
+							if(tile.ownerIndex !== -1){
+								didClaimEnemy = true;
+							}
+							setTileOwnerByIndex(tile, playerIndex);
+							tile.savings = 0; // update to host data.
+							
+
+							tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, ownerIndex: playerIndex });
+							
+							if(!isAiPlayer(playerIndex)){
+								if (!tile.object) {
+									playMoveUnit = true;
+									//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+								}
+							}
+						}else{
+							if(!isAiPlayer(playerIndex)){
+								if (!tile.object) {
+									playMoveUnit = true;
+									//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+								}
+							}
+						}
 						
-						// just add the cross object:
-						// TODO: make this into the actionForUndo instead...?
-						tileChangedUpdates.push({ 
-							type: ACTION.object_changed, 
-							q: tile.q, 
-							r: tile.r, 
-							object: tile.object,
-							animationStyle: tile.animationStyle,
-						});
+						actionForUndo = {
+							type: 'build', 
+							unit: newUnit, 
+							cost: data.cost, 
+							didClaim: didClaim, 
+							oldSavings: oldSavings,
+							oldOwnerIndex: oldOwnerIndex,
+							clearedObject: null,
+							poolHex: poolHex,
+							actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+						};
 						
 						
-						//tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: tile.object });
+						actionForUndo.clearedObject = null;
 						
+						
+						if (tile.object) {
+							
+							
+							if(moveUnitType == 0){
+								if(tile.object === 'tree'){
+									sounds.push({name:'claimTree', q: q, r: r, action: action.type});
+								}else if(tile.object === 'grass'){
+									sounds.push({name:'claimGrass', q: q, r: r, action: action.type});
+								}else if(tile.object === 'rock2'){
+									sounds.push({name:'claimRock', q: q, r: r, action: action.type});
+								}else if(tile.object === 'mine1'){
+									sounds.push({name:'claimMine', q: q, r: r, action: action.type});
+								}else{
+									playMoveUnit = true;
+									//sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+								}
+							}else{
+								playMoveUnit = true;
+							}
+						
+							
+
+							// add tree claiming money:
+							let moneyAdded = 0;
+							if(tile.object === 'tree'){
+								moneyAdded = 1;
+							}else if(tile.object === 'rock2'){
+								moneyAdded = 5;
+							}
+							
+							// handle mines:
+							if(tile.object === 'mine1'){
+								//actionForUndo.killedUnit = unitCopy; // Store copy
+								//updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+								
+								killAddedUnit = true;
+							}
+							if(moneyAdded){
+								addCost(actionPool, moneyAdded, poolHex, action.type);
+							}
+							
+							actionForUndo.clearedObject = tile.object;
+							tile.object = null;
+
+							tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, object: null, FText: moneyAdded });
+						}
+						/*
+						actionForUndo = {
+							type: 'build', 
+							unit: newUnit, 
+							cost: data.cost, 
+							didClaim: didClaim, 
+							oldSavings: oldSavings,
+							oldOwnerIndex: oldOwnerIndex,
+							clearedObject: clearedObject,
+							poolHex: poolHex,
+							actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+						};
+						*/
+
+						
+						if (buildCheck.action === 'attack') {
+							const targetUnit = buildCheck.target;
+							actionForUndo.killedUnit = { ...targetUnit }; // Store copy
+							//gameState.units = gameState.units.filter(u => u.id !== targetUnit.id);
+							updates.push({ type: ACTION.unit_removed, unitId: targetUnit.id });
+							
+							if(!isAiPlayer(playerIndex)){
+								if(targetUnit.internalType === 'castle'){ // CASTLE_DATA[targetUnit.type]
+									sounds.push({name:'killCastle', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
+								}else{
+									sounds.push({name:'kill', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
+								}
+								playMoveUnit = false;
+							}
+						}
+						
+						if(playMoveUnit){
+							if(moveUnitType){
+								sounds.push({name:'build'+newUnit.level, q: q, r: r, action: action.type});
+							}else{
+								sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+							}
+						}
+							
+						
+						console.warn("actionForUndo");
+						console.warn(actionForUndo);
+						
+						// if batchActions kills your unit, should just add the cross instead?
+						// calculateBalanceAndKillSoldiers doesnt take into account the new unit wages...
+						// ...most probably. so it should be taken as parameter to
+						// calculateBalanceAndKillSoldiers() ?
+						//updates.push({ type: ACTION.unit_added, unit: newUnit });
+						
+						
+						let addedUnitWasKilled = false;
+						
+						/*
+						// action_build:
+						// if claimed enemy tile, check if any enemy dies:
+						// Note: must check for attacking player pools too.
+						if(didClaimEnemy){ // (not non-owned tile.)
+							// check if the enemy tile owner will die.
+							checkPlayers.push(oldOwnerIndex);
+							
+							// check enemy pools:
+							// old owner = oldOwnerIndex
+							let pools = findEconomyPools(oldOwnerIndex);
+							let killdata = calculateBalanceAndKillSoldiers(pools);
+							
+							if(killdata.batchActions && killdata.batchActions.length > 0){
+								let batchActions = killdata.batchActions;
+								let poolsAfter = killdata.poolsAfter;
+								let poolsBefore = killdata.poolsBefore;
+								actionForUndo.batchActions = batchActions;
+								actionForUndo.poolsBefore = poolsBefore;
+								updates.push(...batchActions);
+								
+								sounds.push({ type: ACTION.sound, name: "diedByStarving", q:0, r:0, playerIndex: -1, action: ACTION.action_move});
+							}
+							// put batchActions into undo history with the current actionForUndo,
+							// maybe add new key for it like actionForUndo.poolActions = batchActions ?
+							// and then put those batchActions into updates so they will be sent to all players?
+							// for undo it has to remember the pool before changing it, so when undoing, it has to revert back to
+							// savings before soldiers died (and make soldiers alive again and remove the 'dead' object).
+						}
+						if(isSoldier(newUnit)){
+							// if placed soldier, check if that owner will die even if not claimed any hex.
+							checkPlayers.push(playerIndex);
+							
+							// if placed soldier, check if your soldiers will die:
+							let pools = findEconomyPools(playerIndex);
+							let killdata = calculateBalanceAndKillSoldiers(pools);
+							
+							if(killdata.batchActions && killdata.batchActions.length > 0){
+								let batchActions = killdata.batchActions;
+								
+								addedUnitWasKilled = true;
+								
+								
+								let poolsAfter = killdata.poolsAfter;
+								let poolsBefore = killdata.poolsBefore;
+								
+								if(!actionForUndo.batchActions){
+									actionForUndo.batchActions = [];
+								}
+								actionForUndo.batchActions.push(...batchActions);
+
+								//updates.push({ type: ACTION.unit_added, unit: newUnit });
+								
+								actionForUndo.poolsBefore = poolsBefore;
+								updates.push(...batchActions);
+								
+								sounds.push({ type: ACTION.sound, name: "diedByStarving", q:0, r:0, playerIndex: -1, action: ACTION.action_move});
+							}
+						}
+						*/
+						
+						// TODO... fix this: the newly built unit doesnt die with the others:
+						// for undo it must know to give back the undo money.
+						// now when my units dies, this new unit stays alive.
+						actionForUndo.addedUnitWasKilled = addedUnitWasKilled;
+						
+						updates.push({ type: ACTION.unit_added, unit: newUnit });
+						
+						if(killAddedUnit){
+							// dont add killed unit or it will create that unit after undo...
+							//actionForUndo.killedUnit = { ...unitCopy };
+							updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+						}
+						
+						
+						/*
+						if(!addedUnitWasKilled){
+							updates.push({ type: ACTION.unit_added, unit: newUnit });
+						}else{
+
+							// TODO: think how to fix this unit add/remove...
+							//actionForUndo.unit = null; // dont tell we added unit since we didnt.
+							
+							// kill also the added unit:
+							tile.object = 'dead'; // Turn to dead (crosses)
+							tile.actionTurnNumber = gameState.turn.turnNumber;
+							
+							// add animation info for host:
+							tile.creationTime = msNowFloor(); 
+							tile.animationFinished = 0; // ensure no animation will be visible.
+							tile.animationStyle = 1; // 1 = appear from bottom to up, 2 = appear from zero size to normal size
+							
+							// just add the cross object:
+							// TODO: make this into the actionForUndo instead...?
+							tileChangedUpdates.push({ 
+								type: ACTION.object_changed, 
+								q: tile.q, 
+								r: tile.r, 
+								object: tile.object,
+								animationStyle: tile.animationStyle,
+							});
+							
+							
+							//tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: tile.object });
+							
+						}
+						*/
+						
+						
+						// push to updates all tile_changed updates that were merged into one:
+						pushMergedUpdates(updates, tileChangedUpdates);
 					}
-					*/
-					
-					
-					// push to updates all tile_changed updates that were merged into one:
-					pushMergedUpdates(updates, tileChangedUpdates);
-					
 				}
 			}else{
 				console.error("buildCheck failed:");
@@ -10756,6 +11095,8 @@ function tileGivesIncome(tile){
 }
 
 
+// HOST-ONLY: clients doesnt know tiles savings.
+// CLIENTS can only use this to know their pool sizes etc. not for money.
 function findEconomyPools(playerIndex, log_enabled = false) {
 	// Finds all contiguous land areas for a given player
 	const pools = [];
@@ -10790,6 +11131,7 @@ function findEconomyPools(playerIndex, log_enabled = false) {
 			
 			pool.hexes.push({ q, r, tile: currentTile });
 			pool.totalSavings += currentTile.savings;
+			//console.warn(currentTile.savings);
 			
 			// Add income if no grass/tree on it, cross (dead) gives income for now.
 			if (tileGivesIncome(currentTile)) {
@@ -10798,9 +11140,15 @@ function findEconomyPools(playerIndex, log_enabled = false) {
 			
 			// Check for soldier
 			const unit = getUnitAt(q, r);
-			if (unit && isSoldier(unit) && SOLDIER_DATA[unit.type]) {
-				pool.soldiers.push(unit);
-				pool.totalWages += SOLDIER_DATA[unit.type].wage;
+			
+			
+			if (unit && isSoldier(unit)) {
+			//if (unit && isSoldier(unit) && SOLDIER_DATA[unit.type]) {
+				const unitInfo = getUnitInfo(unit.type);
+				if(unitInfo){
+					pool.soldiers.push(unit);
+					pool.totalWages += unitInfo.wage;
+				}
 			}
 			
 			// Check neighbors
@@ -11401,7 +11749,7 @@ function processEndOfDay(){
 			if(tile.object && tile.actionTurnNumber){
 
 				let turnDiff = gameState.turn.turnNumber - tile.actionTurnNumber;
-				console.log("turnDiff", turnDiff);
+	
 				if(tile.object === 'dead'){
 					// turn crosses into grass after 4 turns:
 					if(turnDiff >= 4){
@@ -11798,8 +12146,39 @@ balance: 5
 */
 
 
+// kill and return actions array:
+function killPlayer(playerIndex){
+	let player = getPlayerByIndex(playerIndex);
+	player.isDead = true;
+
+	let batchActions = [];
+	
+	batchActions.push({ type: ACTION.player_killed, playerIndex: playerIndex });
+
+	let killedUnits = killPlayerUnits(playerIndex);
+	if(killedUnits.length > 0){
+		batchActions.push(...killedUnits);
+	}
+
+	return batchActions;
+}
+
+// for testing: kill and broadcast:
+function killPlayerNow(playerIndex){
+	let batchActions = killPlayer(playerIndex);
+	
+	if(batchActions.length > 0){
+		broadcast({ 
+			type: ACTION.multiple_actions, 
+			actions: batchActions,
+		});
+	}
+}
 
 
+
+
+// HOST-SIDE
 function executeEndTurn(playerIndex) {
 	// --- 1. Apply income and wages for current player ---
 	const player = getPlayerByIndex(playerIndex);
@@ -11850,7 +12229,7 @@ function executeEndTurn(playerIndex) {
 		let player = gameState.players[p];
 		
 		if(!player.isDead && !player.isSpectator){
-			let killPlayer = false;
+			let doKill = false;
 			
 			let totalUnits = 0;
 			for(let u = 0; u < gameState.units.length; u++){
@@ -11864,7 +12243,7 @@ function executeEndTurn(playerIndex) {
 			
 			if(gameState.settings.gameEndRule === ENDRULE_NO_SOLDIERS){
 				if(totalUnits === 0){
-					killPlayer = true;
+					doKill = true;
 				}
 			}else if(gameState.settings.gameEndRule === ENDRULE_NO_SOLDIERS_NO_MONEY){
 				if(totalUnits === 0){
@@ -11879,13 +12258,26 @@ function executeEndTurn(playerIndex) {
 							}
 						}
 					}
+					// none of the tiles had income:
 					if(!foundIncomeTile){
-						killPlayer = true;
+						// check if any pool has enough savings to buy anything:
+						//let pools = findEconomyPools(player.playerIndex);
+
+						let canBuy = false;
+						for(let i = 0; i < pools.length; i++){
+							let pool = pools[i];
+							if(canBuyAnything(pool.totalSavings)){
+								canBuy = true;
+							}
+						}
+						if(!canBuy){
+							doKill = true;
+						}
 					}
 				}
 			}
 			
-			if(killPlayer){
+			if(doKill){
 				console.warn("PLAYER HAS DIED: "+player.name);
 				batchActions.push(...killPlayer(player.playerIndex));
 				/*
@@ -11940,33 +12332,6 @@ function executeEndTurn(playerIndex) {
 }
 
 
-// kill and return actions array:
-function killPlayer(playerIndex){
-	let player = getPlayerByIndex(playerIndex);
-	player.isDead = true;
-
-	let batchActions = [];
-	
-	batchActions.push({ type: ACTION.player_killed, playerIndex: playerIndex });
-
-	// maybe should kill units with a delay? or not...
-	batchActions.push(...killPlayerUnits(playerIndex));
-
-	return batchActions;
-}
-
-// for testing: kill and broadcast:
-function killPlayerNow(playerIndex){
-	let batchActions = killPlayer(playerIndex);
-	
-	if(batchActions.length > 0){
-		broadcast({ 
-			type: ACTION.multiple_actions, 
-			actions: batchActions,
-		});
-	}
-}
-
 
 
 const uiRightTopRow = document.getElementById('ui-right-top-row-id');
@@ -12000,6 +12365,13 @@ function addUnit(unit){
 		unit.animationFinished = 0; // ensure no animation will be visible.
 		unit.animationStyle = 1; // 1 = appear from bottom to up, 0 = no animation.
 	}else if(unit.internalType === 'soldier'){
+		unit.creationTime = msNowFloor(); 
+		unit.animationFinished = 0; // ensure no animation will be visible.
+		unit.animationStyle = 2; // 2 = appear from zero size to normal size, 0 = no animation.
+		if(!unit.name){
+			unit.name = findNextFreeRandomUnitName(unit.ownerIndex);
+		}
+	}else if(unit.internalType === 'boat'){
 		unit.creationTime = msNowFloor(); 
 		unit.animationFinished = 0; // ensure no animation will be visible.
 		unit.animationStyle = 2; // 2 = appear from zero size to normal size, 0 = no animation.
@@ -12353,6 +12725,7 @@ function handleHostData(data) {
 				// check if soldiers will die due to negative balance: (savings+income)-wages
 				
 				for(let i = 0; i < action.checkPlayers.length; i++){
+					// NOTE: findEconomyPools is HOST ONLY Function.
 					let pools = findEconomyPools(action.checkPlayers[i]);
 					let killdata = calculateBalanceAndKillSoldiers(pools);
 					
@@ -12749,6 +13122,7 @@ function handleHostData(data) {
 			localPlayerPools = findEconomyPools(localPlayer.playerIndex);
 			for(let p = 0; p < poolsInfo.length; p++){
 				let poolInfo = poolsInfo[p];
+				// update by copying to localPlayerPools:
 				let pool = localPlayerPools[p];
 				pool.totalIncome = poolInfo.totalIncome;
 				pool.totalSavings = poolInfo.totalSavings;
@@ -15283,8 +15657,8 @@ function spawnSoldier(q, r, playerIndex, type){
 		r: r,
 		hasMoved: 0,
 		type: type,
-		level: getSoldierLevel(type),
-		internalType: SOLDIER_DATA[type].type,
+		level: getUnitLevel(type),
+		internalType: getUnitInfo(type).type,
 		wasSpawned: 1, // ensure no animation triggered.
 	};
 	
@@ -15301,8 +15675,8 @@ function spawnCastle(q, r, playerIndex, type){
 		r: r,
 		hasMoved: 0,
 		type: type,
-		level: getCastleLevel(type),
-		internalType: CASTLE_DATA[type].type,
+		level: getUnitLevel(type),
+		internalType: getUnitInfo(type).type,
 		wasSpawned: 1, // ensure no animation triggered.
 	};
 
@@ -15768,6 +16142,7 @@ function handleOutside(e) {
 	// Build popup
 	if (
 		!buildPopup.contains(e.target) &&
+		!buildOtherBtn.contains(e.target) &&
 		!buildSoldierBtn.contains(e.target) &&
 		!buildCastleBtn.contains(e.target)
 	) {
@@ -15801,6 +16176,7 @@ document.addEventListener('mousedown', (e) => {
 		gameSettingsUiWrapper2.contains(e.target) ||
 		settingsUiWrapper2.contains(e.target) ||
 		buildPopup.contains(e.target) ||
+		buildOtherBtn.contains(e.target) ||
 		buildSoldierBtn.contains(e.target) ||
 		buildCastleBtn.contains(e.target);
 });
@@ -16208,6 +16584,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 	initDB();
 
 	await loadImages();
+
 	
 	//hostCustomColorPicker.value = "#FF00FF";
 	//lobbyCustomColorPicker.value = "#FF00FF";
@@ -16523,6 +16900,20 @@ window.addEventListener('DOMContentLoaded', async () => {
 		}
 	};
 	
+	buildOtherBtn.onclick = () => {
+		if(!REPLAY_ENABLED){
+			if (buildOtherBtn.classList.contains("cancel")) {
+				buildOtherBtn.classList.remove("cancel");
+				cancelBuildPopup();
+			}else{
+				openBuildPopup('other');
+			}
+		}
+	};
+	buildOtherBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
+	buildOtherBtn.tabIndex = -1; //remove it from the tab order
+	
+	
 	buildSoldierBtn.onclick = () => {
 		if(!REPLAY_ENABLED){
 			if (buildSoldierBtn.classList.contains("cancel")) {
@@ -16581,7 +16972,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 				const i = (startIndex + offset) % gameState.units.length;
 				let unit = gameState.units[i];
 
-				if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+				if(unitTypeCanMove(unit.type) && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+				//if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
 					centerAndSelectUnit(unit);
 					playSound('startmove');
 					break;
@@ -16625,7 +17017,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 				const i = (startIndex - offset + gameState.units.length) % gameState.units.length;
 				let unit = gameState.units[i];
 
-				if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+				if(unitTypeCanMove(unit.type) && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
+				//if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex && !unit.hasMoved){
 					centerAndSelectUnit(unit);
 					playSound('startmove');
 					break;
@@ -16681,6 +17074,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 	
 	
 	initPeerJS();
+	
 	
 
 	console.log("DOMContentLoaded finished");
