@@ -1474,6 +1474,11 @@ input.disabled {
 					<button id="close-settings-btn" class="gamebutton largefont">×</button>
 				</div>
 			</div>
+			<div class="input-group">
+				<div style="flex: 1;">
+					<button id="quit-game-btn2" class="gamebutton redbutton" style="width:31%">Quit game</button>
+				</div>
+			</div>
 			Music:
 			<div class="input-group">
 				<div style="flex: 1;">
@@ -1900,7 +1905,7 @@ input.disabled {
 		<div id="ui-left">
 			<div class="ui-menu ui-panel">
 				
-				<div class="input-group">
+				<div class="input-group" style="display:none">
 					<div style="flex: 1;">
 						<button id="quit-game-btn" class="gamebutton redbutton">Quit game</button>
 					</div>
@@ -4883,6 +4888,7 @@ const buildPopupClose = document.getElementById('build-popup-close');
 
 const toggleUiBtn = document.getElementById('toggle-ui-btn');
 const quitGameBtn = document.getElementById('quit-game-btn');
+const quitGameBtn2 = document.getElementById('quit-game-btn2');
 
 
 const settingsBtn = document.getElementById('settings-btn');
@@ -6432,6 +6438,8 @@ function setMatrix(matrix, scale, x, y) {
 	matrix.f = y;      // Translate Y
 }
 
+let infiniteWaterFrame = 0;
+
 // draw water draw infinitewater draw infinite water render infinitewater render infinite water
 function drawInfiniteWater(){
 
@@ -6443,6 +6451,11 @@ function drawInfiniteWater(){
 	if(useInfiniteWater){
 		if(useAnimatedWater){
 			if(isBigAnimatedWater){
+				
+				//////////////////////////////////////
+				// currently used water animation method.
+				//
+				
 				const patternObj = imageAssets['water-anim-big'];
 				if (patternObj && patternObj.isAnimated) {
 					const now = performance.now();
@@ -6462,10 +6475,15 @@ function drawInfiniteWater(){
 					//matrixInfiniteWater.translateSelf(viewport.x, viewport.y);
 					//matrixInfiniteWater.scaleSelf(viewport.zoom * 1.6 / mipScale);
 					
+					// calculate scrolling in x axis for water, apply zoom difference so it will move faster when zoomed in (always same ratio).
+					let waterScrollRight = (infiniteWaterFrame/5)*viewport.zoom;
+					
 					setMatrix(matrixInfiniteWater, 
 						viewport.zoom * 1.6 / mipScale, 
-						viewport.x, viewport.y
+						viewport.x+waterScrollRight, viewport.y
 					);
+					infiniteWaterFrame++;
+					
 					pattern.setTransform(matrixInfiniteWater);
 					
 					//const matrix = new DOMMatrix()
@@ -6693,7 +6711,25 @@ function drawDirtTile(x, y){
 
 
 
-
+// get the percent size of appearing tiles (used in drawmaptiles and drawhighlights lines drawing)
+// percentMultiplier = simply multiplies the percent, used in the lines drawing to keep lines outside the hex.
+function getAppearingPercent(tile, percentMultiplier = 1){
+	let tileAppearingPercent = 0;
+	
+	let startPercent = 0.2;
+	let tileAnimationLen = 500;
+	
+	let timeDiff = performance.now() - tile.appearStartTime;
+	// make it start animation from 20% size:
+	timeDiff += startPercent*tileAnimationLen;
+	
+	// draw dirt under the owned tile only if animation is still going on:
+	if(timeDiff < tileAnimationLen){
+		tileAppearingPercent = (timeDiff/tileAnimationLen)*percentMultiplier; // 1...0
+	}
+	
+	return tileAppearingPercent;
+}
 
 
 let tileZoomMipLevel = 1; // updated at drawMapTiles()
@@ -6813,19 +6849,10 @@ function drawMapTiles(){
 		}
 		
 		if(tile.isAppearing){
-			let startPercent = 0.2;
-			
-			let timeDiff = performance.now() - tile.appearStartTime;
-			let tileAnimationLen = 500;
-			let maxTileSize = 40; // 80 makes it negative (backwards). for hex_pad (tileSizePad)
-			
-			// make it start animation from 20% size:
-			timeDiff += startPercent*tileAnimationLen;
-			
-			// draw dirt under the owned tile only if animation is still going on:
-			if(timeDiff < tileAnimationLen){
-				tileAppearingPercent = 1-(timeDiff/tileAnimationLen); // 1...0
-				tileSizePad = -tileAppearingPercent*maxTileSize; // -40...0
+			let maxTileSize = 40;
+			tileAppearingPercent = getAppearingPercent(tile);
+			if(tileAppearingPercent){
+				tileSizePad = -(1-tileAppearingPercent)*maxTileSize; // -40...0
 				
 				drawDirtTile(x, y);
 			}else{
@@ -6838,6 +6865,8 @@ function drawMapTiles(){
 		
 		
 		ctx.save(); // needed for hex drawing.
+		
+		// Define the hex path
 		if(tileDyingPercent){
 			// draw rotation-animated and fading hexagon for dying hex:
 			let per = tileDyingPercent*1.5; // 1.5x so it will be fully opaque when going down to zero size.
@@ -6845,13 +6874,8 @@ function drawMapTiles(){
 			// for grass hex,
 			drawHexagonPathRotated(x, y, tileSizePad, per*Math.PI*3);
 		}else if(tileAppearingPercent){
-			// draw rotation-animated and fading hexagon for dying hex:
-			//let per = tileAppearingPercent*1.5; // 1.5x so it will be fully opaque when going down to zero size.
-			//ctx.globalAlpha = 1;
-			// for grass hex,
-			drawHexagonPathRotated(x, y, tileSizePad, 0);
+			drawHexagonPath(x, y, tileSizePad);
 		}else{
-			// Define the hex path
 			// for dirt OR grass hex.
 			drawHexagonPath(x, y, tileSizePad);
 		}
@@ -7046,9 +7070,9 @@ function drawHighlights(){
 		}
 		
 		// dont draw edges if tile appearing animation is going on:
-		if(tile.isAppearing){
-			continue;
-		}
+		//if(tile.isAppearing){
+		//	continue;
+		//}
 
 		
 		
@@ -7079,8 +7103,12 @@ function drawHighlights(){
 					// set line radius multiplier:
 					// - draws selected pools lines inside the hex, so the lines wont overlap which makes it hard to see colors.
 					// - fixed to HEX_SIZE and the line width. if any of them changed, this multiplier needs to be changed.
-
-					drawHexagonPathLines(x, y, highlightedLines, HEX_LINE_MULTI);
+					let linemulti = HEX_LINE_MULTI;
+					if(tile.isAppearing){
+						linemulti = getAppearingPercent(tile, HEX_LINE_MULTI);
+					}
+					
+					drawHexagonPathLines(x, y, highlightedLines, linemulti);
 					//drawHexagonPathLines(x, y, [0,1,2,3,4,5]);
 					
 					let player = getPlayerByIndex(tile.ownerIndex);
@@ -17074,7 +17102,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 	};
 	
 	
-
+	quitGameBtn2.onclick = () => {
+		restartGame();
+	};
+	quitGameBtn2.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
+	quitGameBtn2.tabIndex = -1; //remove it from the tab order
+	
+	
 	quitGameBtn.onclick = () => {
 		restartGame();
 	};
