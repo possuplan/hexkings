@@ -6657,13 +6657,54 @@ function drawMapShading(){
 }
 
 
+function drawDirtTile(x, y){
+
+	ctx.save(); // needed for hex drawing.
+	
+	// Define the hex path
+	// for dirt hex.
+	drawHexagonPath(x, y);
+	
+	let imageName = 'dirt';
+	let img = getImage(imageName);
+
+	// 4. If image is loaded, draw it clipped and scaled
+	if (img && img.complete && img.width > 0) {
+		ctx.clip(); // Apply clip to the hex path
+
+		// Calculate the "pointy-top" hex bounding box
+		const hexWidth = HEX_SIZE * SQRT3*GS;
+		const hexHeight = HEX_SIZE * 2;
+		
+		// Calculate "scale-to-fit" (contain) ratio
+		const ratio = Math.min(hexWidth / img.width, hexHeight / img.height);
+		const dWidth = img.width * ratio;
+		const dHeight = img.height * ratio;
+		
+		// Calculate centered destination (dx, dy)
+		const dx = x - dWidth / 2;
+		const dy = y - dHeight / 2;
+		
+		drawImageMipped(ctx, imageName, dx, dy, dWidth, dHeight, tileZoomMipLevel);
+	}
+	
+	ctx.restore();
+}
+
+
+
+
+
+
+let tileZoomMipLevel = 1; // updated at drawMapTiles()
+
 
 // rendertiles drawtiles rendermaptiles render tiles render map tiles
 function drawMapTiles(){
 	
 	TILES_DRAWN = 0;
 
-	let tileZoomMipLevel = getZoomMipLevel(0.5); // use normal. smaller = earlier switch to smaller image
+	tileZoomMipLevel = getZoomMipLevel(0.5); // use normal. smaller = earlier switch to smaller image
 	
 	// calculate scale matrix for tile textures:
 
@@ -6741,8 +6782,13 @@ function drawMapTiles(){
 		// should set isDead and deadAnimationEnded to false after animation ends,
 		// so it matches the default values. or just remove those keys alltogether so they wont be saved.
 		let tileSizePad = hex_pad; // hex_pad is for debugging, hex_pad default = zero.
+		
 		let drawDyingAnim = false;
 		let tileDyingPercent = 0;
+		
+		let drawAppearingAnim = false;
+		let tileAppearingPercent = 0;
+		
 		
 		if(tile.isDying){
 			let timeDiff = performance.now() - tile.deadStartTime;
@@ -6756,34 +6802,7 @@ function drawMapTiles(){
 				tileDyingPercent = timeDiff/tileAnimationLen; // 0...1
 				tileSizePad = -tileDyingPercent*maxTileSize; // 0...-40
 				
-				ctx.save(); // needed for hex drawing.
-				// Define the hex path
-				drawHexagonPath(x, y);
-				
-				imageName = 'dirt';
-				img = getImage(imageName);
-			
-				// 4. If image is loaded, draw it clipped and scaled
-				if (img && img.complete && img.width > 0) {
-					ctx.clip(); // Apply clip to the hex path
-
-					// Calculate the "pointy-top" hex bounding box
-					const hexWidth = HEX_SIZE * SQRT3*GS;
-					const hexHeight = HEX_SIZE * 2;
-					
-					// Calculate "scale-to-fit" (contain) ratio
-					const ratio = Math.min(hexWidth / img.width, hexHeight / img.height);
-					const dWidth = img.width * ratio;
-					const dHeight = img.height * ratio;
-					
-					// Calculate centered destination (dx, dy)
-					const dx = x - dWidth / 2;
-					const dy = y - dHeight / 2;
-					
-					drawImageMipped(ctx, imageName, dx, dy, dWidth, dHeight, tileZoomMipLevel);
-				}
-				
-				ctx.restore();
+				drawDirtTile(x, y);
 			}else{
 				//tile.isDying = false;
 				// remove keys so they wont be stored in tilesData anymore.
@@ -6793,15 +6812,47 @@ function drawMapTiles(){
 			}
 		}
 		
+		if(tile.isAppearing){
+			let startPercent = 0.2;
+			
+			let timeDiff = performance.now() - tile.appearStartTime;
+			let tileAnimationLen = 500;
+			let maxTileSize = 40; // 80 makes it negative (backwards). for hex_pad (tileSizePad)
+			
+			// make it start animation from 20% size:
+			timeDiff += startPercent*tileAnimationLen;
+			
+			// draw dirt under the owned tile only if animation is still going on:
+			if(timeDiff < tileAnimationLen){
+				tileAppearingPercent = 1-(timeDiff/tileAnimationLen); // 1...0
+				tileSizePad = -tileAppearingPercent*maxTileSize; // -40...0
+				
+				drawDirtTile(x, y);
+			}else{
+				// remove keys so they wont be stored in tilesData anymore.
+				delete tile.isAppearing;
+				delete tile.appearStartTime;
+				//delete tile.appearOwnerIndex;
+			}
+		}
+		
 		
 		ctx.save(); // needed for hex drawing.
 		if(tileDyingPercent){
 			// draw rotation-animated and fading hexagon for dying hex:
 			let per = tileDyingPercent*1.5; // 1.5x so it will be fully opaque when going down to zero size.
 			ctx.globalAlpha = 1.5-per;
+			// for grass hex,
 			drawHexagonPathRotated(x, y, tileSizePad, per*Math.PI*3);
+		}else if(tileAppearingPercent){
+			// draw rotation-animated and fading hexagon for dying hex:
+			//let per = tileAppearingPercent*1.5; // 1.5x so it will be fully opaque when going down to zero size.
+			//ctx.globalAlpha = 1;
+			// for grass hex,
+			drawHexagonPathRotated(x, y, tileSizePad, 0);
 		}else{
 			// Define the hex path
+			// for dirt OR grass hex.
 			drawHexagonPath(x, y, tileSizePad);
 		}
 		
@@ -6994,6 +7045,10 @@ function drawHighlights(){
 			continue;
 		}
 		
+		// dont draw edges if tile appearing animation is going on:
+		if(tile.isAppearing){
+			continue;
+		}
 
 		
 		
@@ -13208,6 +13263,9 @@ function handleHostData(data) {
 			if (tile) {
 				if (data.ownerIndex !== undefined){
 					setTileOwnerByIndex(tile, data.ownerIndex);
+					
+					tile.isAppearing = true;
+					tile.appearStartTime = performance.now();
 				}
 				// if savings were changed due to claiming tile; claimed tile will reset savings to zero.
 				// NOT NEEDED FOR CLIENTS! clients doesnt need to know individual tiles savings.
