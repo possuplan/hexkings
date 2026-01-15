@@ -8986,7 +8986,11 @@ function updateSelectedPoolUi(){
 			buildCastleBtn.classList.remove("disabled");
 		}
 		if(selectedPool.totalSavings >= minOtherCost){
-			buildOtherBtn.classList.remove("disabled");
+			// must have selected unit set to build other units.
+			// todo: make later check if any of the items can be built when adding new units that doesnt require selected unit.
+			if(selectedUnit){
+				buildOtherBtn.classList.remove("disabled");
+			}
 		}
 
 		showPoolInfo();
@@ -9141,6 +9145,7 @@ function handleHexClick(hex) {
 							unitType: placingUnit.type,
 							q: hex.q,
 							r: hex.r,
+							unitId: selectedUnit.id,
 							poolHex: originPoolHex, // selectedUnit hex pool loses the money.
 						});
 						
@@ -9149,6 +9154,8 @@ function handleHexClick(hex) {
 							updateSelectedPoolInfo(originPoolHex);
 							updatePools = false;
 						}
+						
+						deselectUnit();
 					}else{
 						playSound('protect');
 					}
@@ -9178,12 +9185,14 @@ function handleHexClick(hex) {
 								unitId: selectedUnit.id, // the builder unit id. will be set hasMoved = true.
 								poolHex: originPoolHex, // selectedUnit hex pool loses the money.
 							});
-							
+			
 							// update here before return or it wont be updated.
 							if(updatePools){
 								updateSelectedPoolInfo(originPoolHex);
 								updatePools = false;
 							}
+							
+							deselectUnit();
 						}else{
 							playSound('protect');
 						}
@@ -9891,9 +9900,12 @@ function openBuildPopup(type) {
 	buildPopupList.innerHTML = '';
 	
 	for (const key in data) {
+		
 		const item = data[key];
 		//const canAfford = poolSavings >= item.cost;
 		let canAfford = canAffordCheck(poolSavings, item.cost);
+		let isDisabled = false;
+		
 		// boats can be built only if an unit was selected:
 		if(item.type === "boat" && !selectedUnit){
 			canAfford = false;
@@ -9901,8 +9913,21 @@ function openBuildPopup(type) {
 		const itemEl = document.createElement('div');
 		itemEl.className = 'build-item';
 		if (!canAfford){
+			//itemEl.classList.add('disabled');
+			isDisabled = true;
+		}
+		if(type === "other"){
+			// must have unit selected to use mines or boats.
+			// todo: make specific rules per "other" units.
+			if(!selectedUnit){
+				//itemEl.classList.add('disabled');
+				isDisabled = true;
+			}
+		}
+		if(isDisabled){
 			itemEl.classList.add('disabled');
 		}
+		
 		let imagePath = getImagePath(item);
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
@@ -9911,7 +9936,7 @@ function openBuildPopup(type) {
 			<span class="cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
 		`;
 		
-		if (canAfford) {
+		if (canAfford && !isDisabled) {
 			itemEl.onclick = () => {
 				placingUnit = {
 					type: item.name, // "peasant" etc.
@@ -10017,6 +10042,22 @@ function isCastle(unit){
 }
 function isSoldier(unit){
 	return unit && unit.internalType === 'soldier';
+}
+
+function isTileMinePlayerMine(tile, playerIndex){
+	let foundEnemyMine = false;
+	if(tile.object && getUnitType(tile.object) === "mine"){
+		if(tile.objectOwnerIndexes !== undefined){
+			for(let i = 0; i < tile.objectOwnerIndexes.length; i++){
+				// if there was mine set by any other player than you:
+				if(tile.objectOwnerIndexes[i] !== playerIndex){
+					foundEnemyMine = true;
+					break;
+				}
+			}
+		}
+	}
+	return !foundEnemyMine;
 }
 
 
@@ -10266,7 +10307,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 			return badMove('not_land');
 		}
 		
-		if(tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.includes(player.playerIndex)){
+		if(tile.object && tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.includes(player.playerIndex)){
 			return badMove('already_has_mine');
 		}
 		
@@ -10697,14 +10738,23 @@ function executeAction(playerId, action) {
 							sounds.push({name:'claimRock', q: toQ, r: toR, action: action.type});
 						}else if(toTile.object === 'mine1'){
 							sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+							killMovedUnit = true;
+						}else if(toTile.object === 'landmine'){
+							// only explode if its not your mine:
+							if(!isTileMinePlayerMine(toTile, playerIndex)){
+								sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+								killMovedUnit = true;
+							}else{
+								if(!actionForUndo.killedUnit){
+									sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+								}
+							}
 						}else{
 							if(!actionForUndo.killedUnit){
 								sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
 							}
 						}
-					
-						
-						
+
 						// add tree claiming money:
 						let moneyAdded = 0;
 						if(toTile.object === 'tree'){
@@ -10714,8 +10764,8 @@ function executeAction(playerId, action) {
 						}
 						
 						// handle mines:
-						if(toTile.object === 'mine1'){
-							killMovedUnit = true;
+						//if(toTile.object === 'mine1'){
+							//killMovedUnit = true;
 
 							/*
 							toTile.object = 'dead'; // Turn to dead (crosses)
@@ -10734,7 +10784,7 @@ function executeAction(playerId, action) {
 								animationStyle: toTile.animationStyle,
 							});
 							*/
-						}
+						//}
 						
 						if(moneyAdded){
 							addCost(actionPool, moneyAdded, poolHex, action.type);
@@ -10875,7 +10925,7 @@ function executeAction(playerId, action) {
 			
 			//console.log("executeAction action_build");
 			
-			const { unitType, q, r, poolHex } = action;
+			const { unitType, q, r, poolHex, unitId } = action;
 			console.log("poolHex");
 			console.log(poolHex); // from which pool
 			console.log("q, r");
@@ -10918,8 +10968,11 @@ function executeAction(playerId, action) {
 							cost: data.cost, 
 							didClaim: false, 
 							poolHex: poolHex,
+							unitId: unitId, // the builder unit id.
 							actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
 						};
+						
+						updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: unitId});
 						
 						updates.push({ type: ACTION.unit_added, unit: newUnit });
 						
@@ -11452,6 +11505,10 @@ function executeAction(playerId, action) {
 						
 						// updates.push({ type: ACTION.unit_added, unit: lastAction.killedUnit });
 					}
+				}
+				
+				if(lastAction.unitId !== undefined){
+					updates.push({ type: ACTION.unit_move_reset, hasMoved: false, unitId: lastAction.unitId});
 				}
 				
 
@@ -13525,14 +13582,17 @@ function handleHostData(data) {
 		case ACTION.tile_changed: {
 			const tile = getTileAt(data.q, data.r);
 			if (tile) {
+				let oldObject = tile.object;
+				
 				if (data.ownerIndex !== undefined){
 					setTileOwnerByIndex(tile, data.ownerIndex);
 					
 					tile.isAppearing = true;
 					tile.appearStartTime = performance.now();
 					
-					// delete data for mines owners since it was claimed and emptied anyway.
-					delete tile.objectOwnerIndexes;
+					// cant delete here because undo would fuck it up for not remembering the list of owners.
+					//delete tile.objectOwnerIndexes;
+
 				}
 				// if savings were changed due to claiming tile; claimed tile will reset savings to zero.
 				// NOT NEEDED FOR CLIENTS! clients doesnt need to know individual tiles savings.
@@ -13545,7 +13605,9 @@ function handleHostData(data) {
 				
 				// add new object owner:
 				if(data.addedObjectOwnerIndex !== undefined){
-					if(tile.objectOwnerIndexes === undefined){
+					// clear old owners if there were no previous object (mine) set,
+					//   or tile.objectOwnerIndexes was not set:
+					if(!oldObject || tile.objectOwnerIndexes === undefined){
 						tile.objectOwnerIndexes = [];
 					}
 					tile.objectOwnerIndexes.push(data.addedObjectOwnerIndex);
