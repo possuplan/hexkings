@@ -3329,11 +3329,14 @@ const ACTION = {
 	'action_build': 206, 		// ACTION.action_build
 	'action_undo': 207, 		// ACTION.action_undo
 	'action_end_turn': 208, 	// ACTION.action_end_turn
-
+	'action_build_object': 209, // ACTION.action_build_object
+	
 	// handleHostData & handleClientData:
 	'check_balance': 300, 		// ACTION.check_balance
 	'chat': 301, 				// ACTION.chat
 	'lobby_chat': 302, 			// ACTION.lobby_chat
+	
+	
 };
 
 
@@ -3359,7 +3362,8 @@ function compressAction(data){
 			return [data.type, data._T, data.name, data.q, data.r, data.playerIndex, data.action];
 		}
 		break;
-		
+		/*
+		// removed for now since its getting more complex.
 		case ACTION.tile_changed: {
 			let FText = data.FText ?? 0;
 			if(data.ownerIndex !== undefined && data.object !== undefined){
@@ -3376,6 +3380,7 @@ function compressAction(data){
 			}
 		}
 		break;
+		*/
 		case ACTION.object_changed: {
 			if(data.animationStyle !== undefined && data.object !== undefined){
 				return [data.type, data._T, data.q, data.r, data.animationStyle, data.object];
@@ -3453,6 +3458,8 @@ function deCompressAction(arr){
 			};
 		}
 		break;
+		/*
+		// removed for now since its getting more complex.
 		case ACTION.tile_changed: {
 			let base = {
 				type: arr[0], 
@@ -3470,6 +3477,7 @@ function deCompressAction(arr){
 			return base;
 		}
 		break;
+		*/
 		case ACTION.object_changed: {
 			let base = {
 				type: arr[0], 
@@ -3564,6 +3572,8 @@ const OTHER_UNITS_DATA = {
 	// unit.daysLeft = 7, explodes after 7 days.
 	"sailboat": { canMove: 1, frames: 1, visibleName: "Sailboat", name: "sailboat", type:"boat", defaultImage: "sailboat1", level: 1, cost: 1, wage: 0, sell: 0 },
 	
+	"landmine": { canMove: 0, frames: 1, visibleName: "Landmine", name: "landmine", type:"mine", isObject: true, isInvisible: true, defaultImage: "landmine", level: 0, cost: 1, wage: 0, sell: 0 },
+	
 	// experimental, could buy airships that are kinda like boats but can fly anywhere.
 	// should also explode after a time.
 	// could unload the unit inside it to the ground, or make a kamikaze.
@@ -3603,6 +3613,39 @@ console.warn(UNITS);
 
 const EPSILON = 0.000001; // The margin of error for buying units etc.
 
+let unitTypeIsObject = buildObjectsList(UNITS.ALL);
+let unitTypeIsInvisibleObject = buildInvisibleObjectsList(UNITS.ALL);
+
+// check if unitType is supposed to be object instead of unit. 
+//   should use tile_changed message instead of unit_added.
+function isUnitTypeObject(unitType){
+	return unitTypeIsObject[unitType] ?? false;
+}
+function isUnitTypeInvisibleObject(unitType){
+	return unitTypeIsInvisibleObject[unitType] ?? false;
+}
+
+// to know which buildable unit type is actually an object.
+function buildObjectsList(data){
+	let obj = {};
+	for (const key in data) {
+		const entry = data[key];
+		if (entry.isObject) {
+			obj[entry.name] = true;
+		}
+	}
+	return obj;
+}
+function buildInvisibleObjectsList(data){
+	let obj = {};
+	for (const key in data) {
+		const entry = data[key];
+		if (entry.isObject && entry.isInvisible) {
+			obj[entry.name] = true;
+		}
+	}
+	return obj;
+}
 
 function getCheapestCost(data) {
 	let cheapest = null;
@@ -4035,6 +4078,7 @@ imageAssets = {
 	'soldier4-1': {path:'images/'+pathPrefix+'/soldier4-1.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
 	
 	'sailboat1':   {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: 0, offsetY: -4},
+	'landmine':   {path:'images/'+pathPrefix+'/landmine1.png', scale:1.8, offsetX: 0, offsetY: -10},
 
 	
 	//'castle1':  {path:'images/orig-scaled/128x128/castle1.png', scale:1.8, offsetX: 0},
@@ -7208,8 +7252,16 @@ function drawObjects(){
 		}
 		
 		if (tile.object) {
-			drawObject(ctx, x, y, tile.object, tile);
-			OBJECTS_DRAWN++;
+			let draw = true;
+			if(tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.length > 0){
+				if(!tile.objectOwnerIndexes.includes(localPlayer.playerIndex)){
+					draw = false;
+				}
+			}
+			if(draw){
+				drawObject(ctx, x, y, tile.object, tile);
+				OBJECTS_DRAWN++;
+			}
 		}
 		
 	}
@@ -7389,6 +7441,7 @@ function drawUnits(){
 	drawUnitsByInternalType("castle");
 	drawUnitsByInternalType("soldier");
 	drawUnitsByInternalType("boat");
+	drawUnitsByInternalType("mine");
 	
 	let pulseOffsetX = 10+(-8*pulseScale(0,2, PULSE_SPEED));
 	
@@ -9104,30 +9157,64 @@ function handleHexClick(hex) {
 			}else{
 				// type is soldier or castle.
 				
-				const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
-				
-				if (buildCheck.valid) {
+				if(isUnitTypeObject(placingUnit.type)){
+					updatePools = false;
 					
+					if(selectedUnit){
+						// type: ACTION.action_build_object,
+						console.warn("selectedUnit action_build_object");
+						
+						let originPoolHex = {q:selectedUnit.q, r:selectedUnit.r};
+					
+						const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+						
+						if (buildCheck.valid) {
+							console.warn("buildCheck valid action_build_object");
+							sendToHost({
+								type: ACTION.action_build_object,
+								unitType: placingUnit.type,
+								q: hex.q,
+								r: hex.r,
+								unitId: selectedUnit.id, // the builder unit id. will be set hasMoved = true.
+								poolHex: originPoolHex, // selectedUnit hex pool loses the money.
+							});
+							
+							// update here before return or it wont be updated.
+							if(updatePools){
+								updateSelectedPoolInfo(originPoolHex);
+								updatePools = false;
+							}
+						}else{
+							playSound('protect');
+						}
+					
+					}
+				}else{
+					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+					
+					if (buildCheck.valid) {
+						
 
-					sendToHost({
-						type: ACTION.action_build,
-						unitType: placingUnit.type,
-						q: hex.q,
-						r: hex.r,
-						poolHex: poolHex, // remember first hex from selected pool.
-					});
-					
-					// update here before return or it wont be updated.
-					if(updatePools){
-						updateSelectedPoolInfo(hex);
-						updatePools = false;
+						sendToHost({
+							type: ACTION.action_build,
+							unitType: placingUnit.type,
+							q: hex.q,
+							r: hex.r,
+							poolHex: poolHex, // remember first hex from selected pool.
+						});
+						
+						// update here before return or it wont be updated.
+						if(updatePools){
+							updateSelectedPoolInfo(hex);
+							updatePools = false;
+						}
+					} else {
+						if(buildCheck.reason && buildCheck.reason === "low_level"){
+							shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, getUnitLevel(placingUnit.type));
+							shieldingStartTime = msNowFloor();
+						}
+						playSound('protect');
 					}
-				} else {
-					if(buildCheck.reason && buildCheck.reason === "low_level"){
-						shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, getUnitLevel(placingUnit.type));
-						shieldingStartTime = msNowFloor();
-					}
-					playSound('protect');
 				}
 			}
 			
@@ -9820,6 +9907,7 @@ function openBuildPopup(type) {
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
 			<span><img src="${imagePath}" width="50"></span>
+			<span class="cost"><span style="color:white">${item.visibleName}</span></span>
 			<span class="cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
 		`;
 		
@@ -9918,6 +10006,10 @@ function isTypeSoldier(unitType){
 function isTypeBoat(unitType){
 	return getUnitInfo(unitType)?.type === 'boat';
 	//return !!SOLDIER_DATA[unitType];
+}
+
+function getUnitType(unitType){
+	return getUnitInfo(unitType)?.type ?? null;
 }
 
 function isCastle(unit){
@@ -10124,6 +10216,17 @@ function isMoveValid(unit, toHex, player) {
 }
 
 
+function getVisibleObjectAt(q, r){
+	let tile = getTileAt(q, r);
+	if(tile.object){
+		// object is same as unitType when placing object instead of unit.
+		if(!isUnitTypeInvisibleObject(tile.object)){
+			return true;
+		}
+	}
+	return false;
+}
+
 
 // --- HOST-SIDE VALIDATION ---
 // unitType = unit type being built (horse, peasant, etc..)
@@ -10136,12 +10239,14 @@ let placementframe = 0;
 // isvalidplacement
 function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	console.warn("isPlacementValid CALLED");
+	if(!unitTypeExists(unitType)){
+		console.error("unit_not_exist", unitType);
+		return badMove("unit_not_exist"); // unit type doesnt exist!
+	}
+	
 	if(isTypeBoat(unitType)){
 		console.warn(unitType);
-		if(!unitTypeExists(unitType)){
-			console.error("unit_not_exist", unitType);
-			return badMove("unit_not_exist"); // unit type doesnt exist!
-		}
+
 		// todo: add this check too:
 		//if (!canAffordCheck(actionPool.totalSavings, unitCost)) {
 		//	return badMove("not_enough_money");
@@ -10153,6 +10258,31 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 			return badMove('not_empty');
 		}
 		return goodMove('move');
+	}else if(isUnitTypeObject(unitType)){
+		// action.action_build_object
+		// more logic here.
+		let tile = getTileAt(hex.q, hex.r);
+		if(!tile){
+			return badMove('not_land');
+		}
+		
+		if(tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.includes(player.playerIndex)){
+			return badMove('already_has_mine');
+		}
+		
+		if(getUnitAt(hex.q, hex.r)){
+			return badMove('not_empty');
+		}
+		// dont allow placing on visible objects.
+		// if there already is a mine, it should be replaced silently. 
+		//   owner of mine will see his mine disappearing.
+		//   maybe should also give ownerIndex for the objects, so you can see your own mines.
+		//   tile.objectOwnerIndex could be the key. cant use tile.ownerIndex since its used for tiles ownership.
+		//   remember to edit compressed commands for replays, maybe put ownerindex and objectownerindex inside string separated by space.
+		if(getVisibleObjectAt(hex.q, hex.r)){
+			return badMove('has_visible_object');
+		}
+		return goodMove('move');
 	}
 	//placementframe++;
 	//console.log("placementframe: "+placementframe);
@@ -10162,10 +10292,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	//console.warn("isPlacementValid: selectedPool");
 	//console.warn(selectedPool);
 	
-	if(!unitTypeExists(unitType)){
-		console.error("unit_not_exist", unitType);
-		return badMove("unit_not_exist"); // unit type doesnt exist!
-	}
+
 	
 	let unitLevel = getUnitLevel(unitType);
 	let unitCost = getUnitCost(unitType);
@@ -10658,7 +10785,90 @@ function executeAction(playerId, action) {
 			}
 			break;
 		}
-		
+		case ACTION.action_build_object: {
+			console.warn("executeAction action_build_object");
+			console.warn(action);
+
+			// unitType actually the object name in tile.object. using the other_units unit.name for the tile.object here.
+			const { unitType, q, r, poolHex, unitId } = action;
+			console.log("poolHex");
+			console.log(poolHex); // from which pool
+			console.log("q, r");
+			console.log(q, r); // to which hex
+			
+			if(!isUnitTypeObject(unitType)){
+				console.warn("action_build_object: not an object: "+unitType);
+				return;
+			}
+			
+			const data = getUnitInfo(unitType);//SOLDIER_DATA[unitType] || CASTLE_DATA[unitType];
+			if (!data) return;
+			
+			
+			
+			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
+
+			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex);
+
+			if (buildCheck.valid) {
+				let totalSavings = actionPool.totalSavings;
+				
+				if (canAffordCheck(totalSavings, data.cost)) {
+					
+					if(getUnitType(unitType) === "mine"){
+						console.warn("mine DETECTED");
+						
+						deductCost(actionPool, data.cost, poolHex, action.type);
+						
+						const tile = getTileAt(q, r);
+						
+						if(tile){
+							//let unit = getUnitById(unitId);
+							
+							let addedObjectOwnerIndex = playerIndex;
+							// tile.objectOwnerIndexes has list of current object owner indexes.
+							
+							actionForUndo = {
+								type: 'build_object', 
+								poolHex: poolHex,
+								cost: data.cost,
+								hex: {q, r},
+								unitId: unitId, // the builder unit id.
+								oldObject: tile.object, // if you undo, you must keep the old object and not clear it.
+								addedObjectOwnerIndex: addedObjectOwnerIndex,
+								actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+							};
+							
+							// clear already existing object if any (mainly enemy mines, silently replace them).
+							// not sure if they should just explode instead, or become visible.
+							// if explodes, its too easy to just check if any tiles have mines, could just undo and place new mine...
+							// or just silently not replace it at all, so the original owner still sees his mine there.
+							// or not... if you place a mine and you wont see it because there already was a mine, then it feels bugged.
+							// maybe could make the owners into array, so the mine can have multiple owners...
+							// so if i place mine on enemy mine that i dont see, then we both see the mine there.
+							// i think thats the best, so a list of owners should be there...
+							
+							// so...
+							// if there already is a mine, just add your playerIndex to array.
+							// if you undo, remove your playerIndex from the array.
+							//if (tile.object) {
+							//	actionForUndo.clearedObject = tile.object;
+							//	tile.object = unitType; // not sure if this is necessary here.
+							//}
+						
+							updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: unitId});
+							
+							updates.push({ type: ACTION.tile_changed, q: q, r: r, object: unitType, addedObjectOwnerIndex: addedObjectOwnerIndex });
+							
+							sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+						}else{
+							console.warn("tile does not exist for ", unitType);
+						}
+					}
+				}
+			}
+		}
+		break;
 		case ACTION.action_build: {
 			// build unit
 			
@@ -11245,6 +11455,32 @@ function executeAction(playerId, action) {
 				}
 				
 
+			} else if (lastAction.type === 'build_object'){
+				addCost(actionPool, lastAction.cost, poolHex, action.type);
+				
+				const tile = getTileAt(lastAction.hex.q, lastAction.hex.r);
+				if (tile) {
+					tile.object = lastAction.oldObject ?? null;
+					
+					/*
+					if(tile.objectOwnerIndexes !== undefined){
+						// remove previously added owner index:
+						tile.objectOwnerIndexes = tile.objectOwnerIndexes.filter(n => n !== lastAction.addedObjectOwnerIndex);
+						// delete info if no owners set after undo:
+						if(tile.objectOwnerIndexes.length === 0){
+							delete tile.objectOwnerIndexes;
+						}
+					}
+					
+					oldObject: tile.object, // if you undo, you must keep the old object and not clear it.
+					addedObjectOwnerIndex: addedObjectOwnerIndex,
+					*/
+					
+					updates.push({ type: ACTION.unit_move_reset, hasMoved: false, unitId: lastAction.unitId});
+
+					tileChangedUpdates.push({ type: ACTION.tile_changed, q: lastAction.hex.q, r: lastAction.hex.r, object: tile.object, removedObjectOwnerIndex: lastAction.addedObjectOwnerIndex });
+				}
+			
 			} else if (lastAction.type === 'sell') {
 				// handle un-selling the unit.
 
@@ -13294,6 +13530,9 @@ function handleHostData(data) {
 					
 					tile.isAppearing = true;
 					tile.appearStartTime = performance.now();
+					
+					// delete data for mines owners since it was claimed and emptied anyway.
+					delete tile.objectOwnerIndexes;
 				}
 				// if savings were changed due to claiming tile; claimed tile will reset savings to zero.
 				// NOT NEEDED FOR CLIENTS! clients doesnt need to know individual tiles savings.
@@ -13303,6 +13542,24 @@ function handleHostData(data) {
 				if (data.object !== undefined){
 					tile.object = data.object;
 				}
+				
+				// add new object owner:
+				if(data.addedObjectOwnerIndex !== undefined){
+					if(tile.objectOwnerIndexes === undefined){
+						tile.objectOwnerIndexes = [];
+					}
+					tile.objectOwnerIndexes.push(data.addedObjectOwnerIndex);
+				}
+				if(data.removedObjectOwnerIndex !== undefined){
+					if(tile.objectOwnerIndexes !== undefined){
+						tile.objectOwnerIndexes = tile.objectOwnerIndexes.filter(n => n !== data.removedObjectOwnerIndex);
+						// delete info if no owners set after undo:
+						if(tile.objectOwnerIndexes.length === 0){
+							delete tile.objectOwnerIndexes;
+						}
+					}
+				}
+				
 				
 				// spawn Floating Text:
 				if(data.FText !== undefined && data.FText > 0){ // only show non-zero values.
@@ -13707,6 +13964,7 @@ function handleClientData(peerId, data) {
 		case ACTION.action_undo:
 		case ACTION.action_end_turn:
 		case ACTION.check_balance:
+		case ACTION.action_build_object:
 			//console.log("handleClientData executeAction "+data.type);
 			if (gameState.settings.gameStarted) {
 				executeAction(peerId, data);
