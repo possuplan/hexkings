@@ -676,7 +676,6 @@ label {
 	position: absolute;
 	bottom: 0;
 	right: 0;
-	/* transform: translate(-50%, -50%); */
 	z-index: 100;
 	pointer-events: auto;
 	width: 294px;
@@ -4063,6 +4062,7 @@ imageAssets = {
 	// NOTE: must update landTextures array if new textures added.
 	
 	'dirt':     {path:'images/dirt2.jpg', scale:1, offsetX: 0},
+	'cliff':    {path:'images/cliff2.jpg', scale:1, offsetX: 0},
 	'water':    {path:'images/water.jpg', scale:1, offsetX: 0},
 	
 	'dead':     {path:'images/orig-scaled/128x128/dead.png', scale:2, offsetX: 0},
@@ -6376,6 +6376,9 @@ function drawObject(ctx, x, y, objectName, tile = null){
 		let cropBottomPercent = 0; // how much from the bottom is cropped out.
 		let buildOffsetY = 0;
 		
+		let draw = true;
+		let alpha = 1;
+		
 		// if drawing actual tile object and not just object by name:
 		if(tile){
 
@@ -6451,25 +6454,43 @@ function drawObject(ctx, x, y, objectName, tile = null){
 					tile.animationFinished = 1;
 				}
 			}
-		}
-		ctx.save();
+			
+			
+			// check if mine can be drawn depending whos viewing the game:
+			if(tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.length > 0){
+				if(!tile.objectOwnerIndexes.includes(localPlayer.playerIndex)){
+					if(!REPLAY_ENABLED){
+						// not in replay, dont draw enemy mines:
+						draw = false;
+					}else{
+						// if replay, draw "enemy" mines ghosted:
+						draw = true;
+						alpha = 0.5;
+					}
+				}
+			}
 
-		//ctx.translate(x, y);
-		//ctx.rotate(-viewport.rotation);
+		}
 		
-		// move to object position
-		ctx.translate(x, y);
-		// undo viewport rotation
-		ctx.rotate(-viewport.rotation);
-		// now apply screen-space offsets
-		ctx.translate(-xoff, -yoff);
-		
-		// draw object:
-		drawImageMippedCropped(ctx, imageKey, 0, -buildOffsetY, dw, dh, -1, cropBottomPercent);
-		ctx.restore();
-		//drawImageMippedCropped(ctx, imageKey, dx, dy-buildOffsetY, dw, dh, -1, cropBottomPercent);
-		
-		//drawImageMippedCropped(ctx, imageKey, dx, dy, dw, dh);
+		if(draw){
+			ctx.save();
+
+			// move to object position
+			ctx.translate(x, y);
+			// undo viewport rotation
+			ctx.rotate(-viewport.rotation);
+			// now apply screen-space offsets
+			ctx.translate(-xoff, -yoff);
+			
+			if(alpha < 1){
+				ctx.globalAlpha = alpha;
+			}
+
+			// draw object:
+			drawImageMippedCropped(ctx, imageKey, 0, -buildOffsetY, dw, dh, -1, cropBottomPercent);
+			
+			ctx.restore();
+		}
 	}
 }
 
@@ -6715,7 +6736,7 @@ function drawMapShading(){
 		// draw shadows/shading for land tiles next to water:
 		// draw map outlines:
 		// renderoutlines render outlines
-		if(tile.type === 'land') {
+		if(tile.type !== 'water') {
 			if(tile.outline){
 				let player = getPlayerByIndex(tile.ownerIndex);
 				let color;
@@ -6844,16 +6865,23 @@ function drawMapTiles(){
 
 		// 2. Draw the fallback background color (or owner color)
 		let fallbackColor = LAND_COLOR;
-		if (tile.type === 'water') {
+		if(tile.type === 'water'){
 			fallbackColor = WATER_COLOR;
 			if(!drawWaterTiles){
 				drawTile = false;
 			}
-		} else if (tile.ownerIndex !== -1) {
+		}else{/* else if (tile.ownerIndex !== -1) {
 			const owner = getPlayerByIndex(tile.ownerIndex);
 			fallbackColor = owner ? owner.color : LAND_COLOR;
-		} else if (tile.type === 'land') {
-			fallbackColor = LAND_COLOR;
+		} else if (tile.type === 'land') {*/
+			// if owned tile:
+			if(tile.ownerIndex !== -1){
+				const owner = getPlayerByIndex(tile.ownerIndex);
+				fallbackColor = owner ? owner.color : LAND_COLOR;
+			}else{
+				// non-owned tile:
+				fallbackColor = LAND_COLOR;
+			}
 		}
 		
 		if(!drawTile){
@@ -6962,8 +6990,14 @@ function drawMapTiles(){
 					imageName = 'water';
 					img = getImage(imageName);
 				}else{
-					imageName = 'dirt';
+					if(tile.type === 'land'){
+						imageName = 'dirt';
+					}else{
+						imageName = tile.type;
+					}
+					//img = getImage(imageName);
 					img = getImage(imageName);
+					
 				}
 			}
 			if(previewdraw){
@@ -7265,16 +7299,8 @@ function drawObjects(){
 		}
 		
 		if (tile.object) {
-			let draw = true;
-			if(tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.length > 0){
-				if(!tile.objectOwnerIndexes.includes(localPlayer.playerIndex)){
-					draw = false;
-				}
-			}
-			if(draw){
-				drawObject(ctx, x, y, tile.object, tile);
-				OBJECTS_DRAWN++;
-			}
+			drawObject(ctx, x, y, tile.object, tile);
+			OBJECTS_DRAWN++;
 		}
 		
 	}
@@ -8893,19 +8919,25 @@ function getSelectedPoolSavings() {
 // =================================================================
 
 function isHexWater(q, r){
-	const tile = getTileAt(q, r);
-	if(!tile){ // out of bounds, mark as water:
-		return true;
-	}else if(tile.type == "water"){
-		return true;
-	}
-	return false;
+	return isTileWater(getTileAt(q, r));
+}
+function isHexLand(q, r){
+	return isTileLand(getTileAt(q, r));
 }
 
 function isTileWater(tile){
 	if(!tile){ // out of bounds, mark as water:
 		return true;
-	}else if(tile.type == "water"){
+	}else if(tile.type === "water"){
+		return true;
+	}
+	return false;
+}
+
+function isTileLand(tile){
+	if(!tile){ // out of bounds, mark as water:
+		return false;
+	}else if(tile.type === "land"){
 		return true;
 	}
 	return false;
@@ -9088,7 +9120,10 @@ function handleHexClick(hex) {
 			//makeExplosionBySoundMessage({name:'kill2', q: clickedHexTile.q, r: clickedHexTile.r, action: "test", level:1});
 		}
 		
-		let isLandTile = !isTileWater(clickedHexTile);
+		
+		//let isLandTile = !isTileWater(clickedHexTile);
+		let isLandTile = isTileLand(clickedHexTile); // only checks for "land" type, so cliff type wont be allowed.
+		
 		// maybe this should be called first? or not...
 		//updateSelectedPoolInfo(hex);
 		
@@ -9603,7 +9638,8 @@ function findFastestRoute(startHex, endHex, maxDistance = 50) {
 			const isEndHex = key === endKey;
 
 			// Block land unless this is the destination
-			if (!isEndHex && !isHexWater(n.q, n.r)){
+			if (!isEndHex && isHexLand(n.q, n.r)){
+				// not sure whats happening here actually...
 				continue;
 			}
 
@@ -10035,15 +10071,15 @@ function getUnitCost(unitType){
 // iscastle is_castle
 function isTypeCastle(unitType){
 	return getUnitInfo(unitType)?.type === 'castle';
-	//return !!CASTLE_DATA[unitType];
 }
 function isTypeSoldier(unitType){
 	return getUnitInfo(unitType)?.type === 'soldier';
-	//return !!SOLDIER_DATA[unitType];
 }
 function isTypeBoat(unitType){
 	return getUnitInfo(unitType)?.type === 'boat';
-	//return !!SOLDIER_DATA[unitType];
+}
+function isTypeMine(unitType){
+	return getUnitInfo(unitType)?.type === 'mine';
 }
 
 function getUnitType(unitType){
@@ -10184,8 +10220,8 @@ function isMoveValid(unit, toHex, player) {
 	}
 
 	const toTile = getTileAt(toHex.q, toHex.r);
-	if (!toTile || toTile.type === 'water'){
-		return badMove('Cannot move into water.');
+	if (!isTileLand(toTile)){
+		return badMove('only land type allowed.');
 	}
 	
 	if (toTile.object && toTile.object === 'rock2' && unit.level < 2){
@@ -10316,7 +10352,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 		// action.action_build_object
 		// more logic here.
 		let tile = getTileAt(hex.q, hex.r);
-		if(!tile){
+		if (!isTileLand(tile)){
 			return badMove('not_land');
 		}
 		
@@ -10377,7 +10413,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	
 	
 	const tile = getTileAt(hex.q, hex.r);
-	if (!tile || tile.type === 'water'){
+	if (!isTileLand(tile)){
 		return badMove("not_land"); // Must be on land
 	}
 	if (tile.object && tile.object === 'rock2' && unitLevel < 2){
@@ -11742,8 +11778,8 @@ function drawText(x, y, text, color = "#FFFFFF"){
 
 
 function tileGivesIncome(tile){
-	if(tile.object && tile.object !== 'dead'){
-		// if object was set, and it is not dead (so it is tree or grass)
+	if(tile.object && tile.object !== 'dead' && getUnitType(tile.object) !== "mine"){
+		// if object was set, and it is not dead or mine (so it is tree or grass)
 		return false;
 	}else{
 		return true;
@@ -12448,14 +12484,23 @@ function processEndOfDay(){
 					for(let i = 0; i < neigh.length; i++){
 						let n = neigh[i];
 						const nTile = getTileAt(n.q, n.r);
-						if(nTile && nTile.type === 'land' && !nTile.object){
-							// a land tile without any objects yet.
-							// check if there is any units on this tile:
-							if(!getUnitAt(n.q, n.r)){
-								// ready to use random chance for growing:
-								if(randomFunc() < 0.08){
-									// set this tile as possible growing for grass:
-									grassGrow[`${nTile.q},${nTile.r}`] = nTile;
+						if(nTile && nTile.type === 'land'){
+							// dont allow grow if there is an object:
+							let allowGrow = !nTile.object;
+							// allow if there is an invisible mine:
+							if(isTypeMine(nTile.object)){
+								allowGrow = true;
+							}
+							
+							if(allowGrow){
+								// a land tile without any objects yet.
+								// check if there is any units on this tile:
+								if(!getUnitAt(n.q, n.r)){
+									// ready to use random chance for growing:
+									if(randomFunc() < 0.08){
+										// set this tile as possible growing for grass:
+										grassGrow[`${nTile.q},${nTile.r}`] = nTile;
+									}
 								}
 							}
 						}
@@ -12530,7 +12575,8 @@ function processEndOfDay(){
 		for(let tries = 0; tries < 100; tries++){
 			let rti = random(0, tiles.length - 1);
 			tile = tiles[rti];
-			if(tile.type === 'water' || tile.object || getUnitAt(tile.q, tile.r)){
+			// if(tile.type === 'water'
+			if(!isTileLand(tile) || tile.object || getUnitAt(tile.q, tile.r)){
 				continue;
 			}else{
 				found = 1;
@@ -13494,8 +13540,6 @@ function handleHostData(data) {
 
 			centerFirstUnit();
 			
-
-			
 			if(localPlayer.isHost){
 				replayHistory(NETWORK_HISTORY);
 			}
@@ -13666,6 +13710,10 @@ function handleHostData(data) {
 			if (tile) {
 				if (data.object !== undefined){
 					tile.object = data.object;
+					// remove previous mine object owners, since we replaced it with grass:
+					if(data.object === 'grass'){
+						delete tile.objectOwnerIndexes;
+					}
 					
 					////////////////
 					// create explosion if unit died:
@@ -16093,7 +16141,7 @@ function spawnMines(){
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		let tile = gameState.map.tilesData[t];
 		// if land, no object yet, no owner:
-		if(tile.type === 'land' && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.minePercent ){
+		if(isTileLand(tile) && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.minePercent ){
 			tile.object = "mine1";
 		}
 	}
@@ -16104,7 +16152,7 @@ function spawnRocks(){
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		let tile = gameState.map.tilesData[t];
 		// if land, no object yet, no owner:
-		if(tile.type === 'land' && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.rockPercent ){
+		if(isTileLand(tile) && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.rockPercent ){
 			tile.object = "rock2";
 		}
 	}
@@ -16121,7 +16169,7 @@ function spawnTrees(test1 = 1){
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		let tile = gameState.map.tilesData[t];
 		// if land, no object yet, no owner:
-		if(tile.type === 'land' && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.treePercent ){
+		if(isTileLand(tile) && !tile.object && tile.ownerIndex === -1 && randomFunc() < gameState.settings.treePercent ){
 			tile.object = "tree";
 		}
 	}
@@ -16283,7 +16331,7 @@ function spawnPlayers(){
 			do {
 				randomTileIndex = random(0, tiles.length-1);
 				counter++;
-			} while ((tiles[randomTileIndex].ownerIndex !== -1 || tiles[randomTileIndex].type === "water") && counter < 1000);
+			} while ((tiles[randomTileIndex].ownerIndex !== -1 || !isTileLand(tiles[randomTileIndex])) && counter < 1000);
 			
 			let tile = gameState.map.tilesData[randomTileIndex];
 			let qq = tile.q;
@@ -16457,7 +16505,7 @@ async function replayHistory(history) {
 		const curr = deCompressAction(history[i]);
 
 		let delay = (curr._T - prev._T) * DELAY_MULTI;
-		if (delay < 0) delay = 0;
+		if (delay < 0) delay = 0; // in case of bugged time values...
 		
 		await new Promise(res => setTimeout(res, delay));
 
