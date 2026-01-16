@@ -667,9 +667,8 @@ label {
 
 #build-popup-close {
 	margin-top: 5px;
-	width: 66px;
+	width: 100%;
 	height: 42px;
-	margin-left: 158px;
 	padding: 5px 4px 5px 4px;
 }
 
@@ -680,7 +679,8 @@ label {
 	/* transform: translate(-50%, -50%); */
 	z-index: 100;
 	pointer-events: auto;
-	width: 237px;
+	width: 294px;
+	background-color:black;
 
 	border-top-left-radius: 12px;
 }
@@ -709,6 +709,19 @@ label {
 .build-item .cost {
 	color: var(--warn-color);
 	padding-top: 5px;
+}
+
+.build-item .elem-left {
+	flex:1;
+    text-align:left;
+}
+.build-item .elem-center {
+	flex:1;
+    text-align:left;
+}
+.build-item .elem-right {
+	flex:1;
+    text-align:right;
 }
 
 
@@ -1714,7 +1727,7 @@ input.disabled {
 
 			</div>
 			<div style="flex:1">
-				<span class="label joined-players-text">Joined Players:</span>
+				<span class="label joined-players-text">Players:</span>
 				<div id="host-player-list" class="player-list"></div>
 				
 				<div class="input-group">
@@ -1835,7 +1848,7 @@ input.disabled {
 				
 			</div>
 			<div style="flex:1">
-				<span class="label joined-players-text">Joined Players:</span>
+				<span class="label joined-players-text">Players:</span>
 				<div id="lobby-player-list" class="lobby-player-list"></div>
 			</div>
 		</div>
@@ -9931,9 +9944,9 @@ function openBuildPopup(type) {
 		let imagePath = getImagePath(item);
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
-			<span><img src="${imagePath}" width="50"></span>
-			<span class="cost"><span style="color:white">${item.visibleName}</span></span>
-			<span class="cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
+			<span class="elem-left"><img src="${imagePath}" width="50"></span>
+			<span class="elem-center cost"><span style="color:white">${item.visibleName}</span></span>
+			<span class="elem-right cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
 		`;
 		
 		if (canAfford && !isDisabled) {
@@ -13601,10 +13614,19 @@ function handleHostData(data) {
 				//}
 				if (data.object !== undefined){
 					tile.object = data.object;
+					
+					// for added mines:
+					if(data.addedObjectOwnerIndex !== undefined){
+						// initialize client side animation info:
+						tile.creationTime = msNowFloor();
+						tile.animationFinished = 0;
+						tile.animationStyle = 2;
+					}
 				}
 				
 				// add new object owner:
 				if(data.addedObjectOwnerIndex !== undefined){
+					
 					// clear old owners if there were no previous object (mine) set,
 					//   or tile.objectOwnerIndexes was not set:
 					if(!oldObject || tile.objectOwnerIndexes === undefined){
@@ -14555,7 +14577,7 @@ function kickPlayer(peerId){
 // =================================================================
 function updateJoinedPlayersText(){
 	document.querySelectorAll('.joined-players-text').forEach(el => {
-		el.textContent = `Joined players (${gameState.players.length}):`;
+		el.textContent = `Players (${gameState.players.length}):`;
 	});
 }
 
