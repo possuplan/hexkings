@@ -2514,6 +2514,8 @@ function showTurnPopup(){
 	turnPopupOverlay.style.display = 'block';
 }
 function hideTurnPopup(){
+	// stop zooming:
+	zoomingStartTime = 0;
 	if(turnPopupOverlay.style.display !== 'none'){
 		turnPopupOverlay.style.display = 'none';
 	}
@@ -3309,7 +3311,7 @@ let MAX_LOBBY_MESSAGE_LEN = 100;
 // list of messages sent to clients:
 // let action = let actions =
 const ACTION = {
-	// handleHostData:
+	// handleHostData: (client receives these)
 	'ping': 100, 				// ACTION.ping
 	'multiple_actions': 101, 	// ACTION.multiple_actions
 	'game_start': 102, 			// ACTION.game_start
@@ -3330,8 +3332,11 @@ const ACTION = {
 	'sound': 117, 				// ACTION.sound
 	'savings_update': 118, 		// ACTION.savings_update
 	'start_game_check': 119,	// ACTION.start_game_check
+	'unit_loaded': 120,			// ACTION.unit_loaded
+	'unit_unloaded': 121,		// ACTION.unit_unloaded
+	'unit_load_reset': 122,		// ACTION.unit_load_reset
 
-	// handleClientData:
+	// handleClientData: (host receives these)
 	'pong': 200, 				// ACTION.pong
 	'join': 201, 				// ACTION.join
 	'player_update': 202, 		// ACTION.player_update
@@ -3342,6 +3347,8 @@ const ACTION = {
 	'action_undo': 207, 		// ACTION.action_undo
 	'action_end_turn': 208, 	// ACTION.action_end_turn
 	'action_build_object': 209, // ACTION.action_build_object
+	'action_load_unit': 210,	// ACTION.action_load_unit
+	'action_unload_unit': 211,	// ACTION.action_unload_unit
 	
 	// handleHostData & handleClientData:
 	'check_balance': 300, 		// ACTION.check_balance
@@ -3525,6 +3532,7 @@ function deCompressAction(arr){
 
 function addNetworkHistory(data){
 	if(REPLAY_ENABLED) return;
+	if(getMyPlayer().isSpectator) return;
 	
 	// add timestamp for when the action was received, will make replays more realistic feeling.
 	NETWORK_HISTORY.push(compressAction({
@@ -3581,7 +3589,7 @@ const OTHER_UNITS_DATA = {
 	// - you have 5 days time until the boat explodes (sinks).
 	// - probably should have different image for different stages of timer, so it first loses its sail, and in the end looks almost sank.
 	
-	// unit.daysLeft = 7, explodes after 7 days.
+	// unit.daysLeft = BOAT_MOVE_DAYS, explodes after 7 days.
 	"sailboat": { canMove: 1, frames: 1, visibleName: "Sailboat", name: "sailboat", type:"boat", defaultImage: "sailboat1", level: 1, cost: 1, wage: 0, sell: 0 },
 	
 	"landmine": { canMove: 0, frames: 1, visibleName: "Landmine", name: "landmine", type:"mine", isObject: true, isInvisible: true, defaultImage: "landmine", level: 0, cost: 1, wage: 0, sell: 0 },
@@ -5274,6 +5282,8 @@ function centerTo(q, r) {
 	// now compute the translation that places this at canvas center
 	viewport.x = canvas.width  / 2 - rx * zoom;
 	viewport.y = canvas.height / 2 - ry * zoom;
+	
+	return axialToPixel(q, r);
 }
 
 
@@ -5281,12 +5291,15 @@ function centerTo(q, r) {
 function centerToPixelPos(centerX, centerY) {
 	viewport.x = canvas.width  / 2 - centerX * viewport.zoom;
 	viewport.y = canvas.height / 2 - centerY * viewport.zoom;
+	return {x: centerX, y: centerY};
 }
 
 function centerToUnit(unit){
 	if(unit){
 		centerTo(unit.q, unit.r);
+		return axialToPixel(unit.q, unit.r);
 	}
+	return null;
 }
 
 function centerAndSelectUnit(unit){
@@ -5302,18 +5315,23 @@ function centerAndSelectUnit(unit){
 		
 		// enable sell button:
 		sellUnitBtn.disabled = false;
+		
+		return axialToPixel(unit.q, unit.r);
 	}
+	return null;
 }
 
 
 function centerToTile(tile){
 	if(tile){
 		centerTo(tile.q, tile.r);
+		return axialToPixel(tile.q, tile.r);
 	}
+	return null;
 }
 
 function centerFirstUnit(){
-	centerAndSelectFirstUnit(false);
+	return centerAndSelectFirstUnit(false);
 }
 
 
@@ -5321,53 +5339,52 @@ function centerFirstUnit(){
 function centerAndSelectFirstUnit(selectUnit = true){
 	let player = getMyPlayer();
 	
-	let found = 0;
+	//let found = 0;
 	if(player && !player.isSpectator){
 		
 		// find first soldier unit to center to:
 		for (const unit of gameState.units) {
-			
 			if(unitTypeCanMove(unit.type) && unit.ownerIndex === player.playerIndex){
 			//if(unit.internalType === 'soldier' && unit.ownerIndex === player.playerIndex){
 				if(selectUnit){
-					centerAndSelectUnit(unit);
+					return centerAndSelectUnit(unit);
 				}else{
-					centerToUnit(unit);
+					return centerToUnit(unit);
 				}
-				found = 1;
-				break;
+				//found = 1;
+				//break;
 			}
 		}
 		// no movable units found: try to find a castle and center to it:
 		// this might be possible when loading a game, or if loaded map has castles set.
-		if(!found){
+		//if(!found){
 			for (const unit of gameState.units) {
 				if(unit.internalType === 'castle' && unit.ownerIndex === player.playerIndex){
 					if(selectUnit){
-						centerAndSelectUnit(unit);
+						return centerAndSelectUnit(unit);
 					}else{
-						centerToUnit(unit);
+						return centerToUnit(unit);
 					}
-					found = 1;
-					break;
+					//found = 1;
+					//break;
 				}
 			}
-		}
+		//}
 		// if no units found at all, just choose first hex owned by player:
-		if(!found){
+		//if(!found){
 			for(let i = 0; i < gameState.map.tilesData.length; i++){
 				let tile = gameState.map.tilesData[i];
 				if(tile.ownerIndex === player.playerIndex){
-					centerToTile(tile);
-					found = 1;
-					break;
+					return centerToTile(tile);
+					//found = 1;
+					//break;
 				}
 			}
-		}
+		//}
 	}
 	
 	// if no valid center pos found, center to map middle:
-	if(!found){
+	//if(!found){
 		let centerX = 0;
 		let centerY = 0;
 		let total = 0;
@@ -5384,8 +5401,8 @@ function centerAndSelectFirstUnit(selectUnit = true){
 			centerY = centerY/total;
 		}
 		
-		centerToPixelPos(centerX, centerY);
-	}
+		return centerToPixelPos(centerX, centerY);
+	//}
 	
 }
 
@@ -5675,9 +5692,46 @@ function addLobbySystemChatMessage(message, color = '#FFF') {
 }
 
 
+
+function getTurnDate(type = 'day'){
+	const turn = gameState.turn.turnNumber;
+	if(type === 'week-day'){
+		const daysPerWeek = 7;
+
+		let week = 1+Math.floor((turn - 1) / daysPerWeek);
+		let day = ((turn - 1) % daysPerWeek) + 1;
+
+		const parts = [];
+		if (week > 0) parts.push(`Week: ${week}`);
+		parts.push(`Day: ${day}`);
+
+		return parts.join(", ");
+	}else if(type === 'month-week-day'){
+	
+		const daysPerWeek = 7;
+		const weeksPerMonth = 4;
+		const daysPerMonth = daysPerWeek * weeksPerMonth;
+
+		let month = 1+Math.floor((turn - 1) / daysPerMonth);
+		let week = 1+Math.floor(((turn - 1) % daysPerMonth) / daysPerWeek);
+		let day = ((turn - 1) % daysPerWeek) + 1;
+
+		const parts = [];
+		if (month > 0) parts.push(`Month: ${month}`);
+		if (week > 0) parts.push(`Week: ${week}`);
+		parts.push(`Day: ${day}`);
+
+		return parts.join(", ");
+	}else{
+		return "Day: "+turn;
+	}
+}
+
+
 function addCurrentTurnChatMessage(){
 	let player = getCurrentTurnPlayer();
-	addSystemChatMessage(`Day ${gameState.turn.turnNumber}: ${player.name}'s turn.`, player.textColor);
+	let turnDate = getTurnDate('week-day');
+	addSystemChatMessage(`${turnDate} - ${player.name}'s turn.`, player.textColor);
 	
 	if(isMyTurn()){
 		showTurnPopup();
@@ -6736,7 +6790,7 @@ function drawMapShading(){
 		// draw shadows/shading for land tiles next to water:
 		// draw map outlines:
 		// renderoutlines render outlines
-		if(tile.type !== 'water') {
+		if(getTileType(tile) !== 'water') {
 			if(tile.outline){
 				let player = getPlayerByIndex(tile.ownerIndex);
 				let color;
@@ -6843,7 +6897,7 @@ function drawMapTiles(){
 		const x = axialToPixelX(q, r);
 		const y = axialToPixelY(q, r);
 
-		if (tile.type === 'water') {
+		if (getTileType(tile) === 'water') {
 			// debug text for water tiles:
 			//ctx.fillStyle = "#FFFFFF";
 			//ctx.fillText("W", x, y+20);
@@ -6865,7 +6919,7 @@ function drawMapTiles(){
 
 		// 2. Draw the fallback background color (or owner color)
 		let fallbackColor = LAND_COLOR;
-		if(tile.type === 'water'){
+		if(getTileType(tile) === 'water'){
 			fallbackColor = WATER_COLOR;
 			if(!drawWaterTiles){
 				drawTile = false;
@@ -6986,11 +7040,11 @@ function drawMapTiles(){
 				img = getImage(imageName);
 			}else{
 				// no owner, use dirt image:
-				if(tile.type === 'water') {
+				if(getTileType(tile) === 'water') {
 					imageName = 'water';
 					img = getImage(imageName);
 				}else{
-					if(tile.type === 'land'){
+					if(getTileType(tile) === 'land'){
 						imageName = 'dirt';
 					}else{
 						imageName = tile.type;
@@ -7149,7 +7203,7 @@ function drawHighlights(){
 		const x = axialToPixelX(q, r);
 		const y = axialToPixelY(q, r);
 
-		if (tile.type === 'water') {
+		if (getTileType(tile) === 'water') {
 			if(useInfiniteWater){
 				continue; // skip water tiles.
 			}
@@ -7353,6 +7407,7 @@ function drawUnitsByInternalType(unitType){
 		let imageKey = `${data.defaultImage}${animSuffix}`;//`${data.type}${data.level}${animSuffix}`;
 		const img = getImage(imageKey);
 		
+
 		
 		if (img && img.complete && img.width > 0) {
 			// Draw the image centered and scaled
@@ -7461,6 +7516,21 @@ function drawUnitsByInternalType(unitType){
 			
 			// draw unit:
 			drawImageMippedCropped(ctx, imageKey, 0, -buildOffsetY, dw, dh, -1, cropBottomPercent);
+			
+			if(unitType === 'boat'){
+				// show extra info only for the owner of the boat:
+				if(unit.ownerIndex === localPlayer.playerIndex){
+					let daysLeft = unit.maxDays - (gameState.turn.turnNumber - unit.dayBuilt);
+					// draw loaded unit on top of the boat unit:
+					if(unit.loadedUnit){
+						const loadedUnitInfo = getUnitInfo(unit.loadedUnit.type);
+						
+						drawImageMippedCropped(ctx, loadedUnitInfo.defaultImage, 0, 0, 40, 40, -1, 0);
+					}
+					drawStrokedText(daysLeft, -25);
+					
+				}
+			}
 
 			ctx.restore();
 			
@@ -7471,10 +7541,20 @@ function drawUnitsByInternalType(unitType){
 }
 
 
-
+function drawUnitsRoutes(){
+	ctx.save();
+	for (const unit of gameState.units) {
+		if(unit.route){
+			drawRouteLines(unit.route, "rgba(255, 255, 255, 0.4)", true);
+		}
+	}
+	ctx.restore();
+}
 
 // renderunits render units
 function drawUnits(){
+	
+	drawUnitsRoutes();
 	
 	// draw all units, castles first:
 	drawUnitsByInternalType("castle");
@@ -7540,18 +7620,7 @@ function drawUnits(){
 		ctx.translate(dx, dy);
 		ctx.rotate(-viewport.rotation);
 
-		ctx.font = "14px sans-serif";
-		ctx.lineWidth = 3; // outline thickness
-		ctx.strokeStyle = "black";
-		ctx.fillStyle = "white";
-		ctx.lineJoin = "round"; // prevents sharp corners on letters
-		ctx.strokeText(selectedUnit.name, 0, -50);
-		//ctx.strokeText(selectedUnit.name, dx, dy);
-
-		// fill
-		ctx.fillStyle = "white";
-		ctx.fillText(selectedUnit.name, 0, -50);
-		//ctx.fillText(selectedUnit.name, dx, dy);
+		drawStrokedText(selectedUnit.name, -50);
 		
 		ctx.restore();
 	}
@@ -7561,6 +7630,18 @@ function drawUnits(){
 	//console.log("unitsDrawn = "+unitsDrawn);
 }
 
+
+function drawStrokedText(text, offset = 0){
+	ctx.font = "14px sans-serif";
+	ctx.lineWidth = 3; // outline thickness
+	ctx.strokeStyle = "black";
+	ctx.fillStyle = "white";
+	ctx.lineJoin = "round"; // prevents sharp corners on letters
+	ctx.strokeText(text, 0, offset);
+
+	ctx.fillStyle = "white";
+	ctx.fillText(text, 0, offset);
+}
 
 
 // rendermovementranges
@@ -7617,6 +7698,7 @@ function drawPlacementHighlight(){
 	
 	// Draw placement highlight
 	if (placingUnit) {
+		console.log("safasf");
 		const mouseHex = pixelToAxial(lastMousePos.x, lastMousePos.y);
 		//const { x, y } = axialToPixel(mouseHex.q, mouseHex.r);
 		const x = axialToPixelX(mouseHex.q, mouseHex.r);
@@ -8144,28 +8226,44 @@ let focusedHexEnabled = true;
 
 function drawFocusedHex(){
 	if(focusedHex){
+		const x = axialToPixelX(focusedHex.q, focusedHex.r);
+		const y = axialToPixelY(focusedHex.q, focusedHex.r);
+		
 		let tile = getTileAt(focusedHex.q, focusedHex.r);
-		if(tile && tile.type !== 'water'){
-			const x = axialToPixelX(focusedHex.q, focusedHex.r);
-			const y = axialToPixelY(focusedHex.q, focusedHex.r);
-			
-
-			if(selectedUnit){
+		
+		if(placingUnit && isTypeBoat(placingUnit.type)){
+			if(isTileWater(tile)){ // !tile || tile.type === 'water'){
 				drawHexagonPathLines(x, y, null, HEX_LINE_MULTI);
 				ctx.setLineDash([12.5, 15]);
-				ctx.strokeStyle = 'rgba(255,255,0, 0.4)';
-				ctx.lineWidth = 3;
-			}else{
-				drawHexagonPathLines(x, y, null, HEX_LINE_MULTI2);
 				ctx.strokeStyle = 'rgba(255,255,255, 0.4)';
-				ctx.lineWidth = 2;
+				ctx.lineWidth = 3;
+				
+				ctx.lineCap = 'round';
+				ctx.stroke();
+				ctx.lineCap = 'butt'; // reset to default
+				ctx.setLineDash([]); // reset possible dash.
 			}
-			
-			ctx.lineCap = 'round';
-			ctx.stroke();
-			ctx.lineCap = 'butt'; // reset to default
-			ctx.setLineDash([]); // reset possible dash.
+		}else{
+			if(!isTileWater(tile)){ // tile && tile.type !== 'water'){
+				if(selectedUnit || placingUnit){
+					drawHexagonPathLines(x, y, null, HEX_LINE_MULTI);
+					ctx.setLineDash([12.5, 15]);
+					ctx.strokeStyle = 'rgba(255,255,0, 0.4)';
+					ctx.lineWidth = 3;
+				}else{
+					drawHexagonPathLines(x, y, null, HEX_LINE_MULTI2);
+					ctx.strokeStyle = 'rgba(255,255,255, 0.4)';
+					ctx.lineWidth = 2;
+				}
+				
+				ctx.lineCap = 'round';
+				ctx.stroke();
+				ctx.lineCap = 'butt'; // reset to default
+				ctx.setLineDash([]); // reset possible dash.
+			}
 		}
+
+		
 	}
 }
 
@@ -8287,6 +8385,61 @@ function drawLastActionHexes(){
 
 
 
+let startZoomPos = null;
+let zoomingStartTime = 0;
+let zoomingLen = 1200;
+let startZoomValue = 0.1;
+let endZoomValue = 1;
+
+
+function startZoom(isSpectator = false){
+	if(startZoomPos){
+		zoomingStartTime = performance.now();
+		
+		// force fixed zoom level for specs at start of game:
+		if(isSpectator){
+			startZoomValue = 0.1;
+			endZoomValue = 0.3;
+			zoomingLen = 1000;
+		}
+	}
+}
+function startZoom2(){
+	startZoomPos = centerFirstUnit();
+	startZoom();
+}
+
+
+
+function drawRouteLines(route, color = "#FFFFFF", dashed = false){
+	ctx.beginPath();
+	ctx.strokeStyle = color;
+	if(dashed){
+		let time = performance.now()/50;
+		ctx.setLineDash([10, 18]);
+		ctx.lineDashOffset = -time; // todo finish.
+	}
+	ctx.lineWidth = 5.5;
+	ctx.lineCap = 'round';
+	for(let i = 0; i < route.length; i++){
+		let hex = route[i];
+		const x = axialToPixelX(hex.q, hex.r);
+		const y = axialToPixelY(hex.q, hex.r);
+		if(i === 0){
+			ctx.moveTo(x,y);
+		}else{
+			ctx.lineTo(x,y);
+		}
+	}
+	ctx.stroke();
+	
+	// reset to default:
+	ctx.lineCap = 'butt';
+	if(dashed){
+		ctx.setLineDash([]);
+		ctx.lineDashOffset = 0;
+	}
+}
 
 
 
@@ -8300,6 +8453,21 @@ function render() {
 
 	//console.log(tileZoomMipLevel);
   
+	if(zoomingStartTime){
+		let diff = performance.now() - zoomingStartTime;
+		let screenX = canvas.width/2;
+		let screenY = canvas.height/2;
+		
+		if(diff < zoomingLen){
+			let percent = diff / zoomingLen; // 0...1
+
+			zoomAtPointPercent(screenX, screenY, percent);
+		}else{
+			// zoom the last time to final zoom:
+			zoomAtPointPercent(screenX, screenY, 1);
+			zoomingStartTime = 0;
+		}
+	}
 	
 	// Save the context state
 	ctx.save();
@@ -8375,7 +8543,9 @@ function render() {
 			ctx.fill();
 		}
 		
+		drawRouteLines(routeHighlight, "rgba(255, 255, 0, 0.5)", true);
 		
+		/*
 		ctx.beginPath();
 		ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
 		ctx.lineWidth = 5.5;
@@ -8393,6 +8563,8 @@ function render() {
 		ctx.stroke();
 
 		//ctxOut.closePath();
+		
+		*/
 	
 	}
 	
@@ -8698,6 +8870,36 @@ function zoomAtPoint(x, y, factor) {
 }
 
 
+
+function easeInOutSmooth(t) {
+	return t * t * (3 - 2 * t);
+}
+
+function easeInOutCubic(t) {
+	return t < 0.5
+		? 4 * t * t * t
+		: 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+function easeInOutPower(t, p = 3) {
+	if (t < 0.5) {
+		return 0.5 * Math.pow(2 * t, p);
+	}
+	return 1 - 0.5 * Math.pow(2 * (1 - t), p);
+}
+
+function zoomAtPointPercent(x, y, percent) {
+	const t = easeInOutPower(percent, 5);
+	
+	const zoomDiff = endZoomValue-startZoomValue; // 0.8
+	const newZoom = startZoomValue + zoomDiff*t; // 0.2...1.0
+	const oldZoom = viewport.zoom;
+	
+	viewport.x = x - (x - viewport.x) * (newZoom / oldZoom);
+	viewport.y = y - (y - viewport.y) * (newZoom / oldZoom);
+	viewport.zoom = newZoom;
+}
+
+
 function handleWheel(e) {
 	e.preventDefault();
 	const zoomFactor = (e.deltaY < 0) ? 1.1 : (1 / 1.1);
@@ -8722,6 +8924,13 @@ function getTileAt(q, r, state = null) {
 		let tileIndex = state.map.tiles[tileKey];
 		return state.map.tilesData[tileIndex];
 	}
+}
+
+function getTileType(tile){
+	if(tile){
+		return tile.type;
+	}
+	return null;
 }
 
 
@@ -8776,8 +8985,15 @@ function getUnitById(unitId){
 }
 
 function getUnitAt(q, r) {
+	// If first argument is an object, extract values
+	if (q !== null && typeof q === "object") {
+		r = q.r;
+		q = q.q; // must be set here or overwrites q before r.
+	}
 	return gameState.units.find(u => u.q === q && u.r === r);
 }
+
+
 
 function getCurrentTurnPlayer() {
 	if (!gameState.settings.gameStarted) return null;
@@ -8839,7 +9055,8 @@ function updateGameUI() {
 	});
 
 	// Update turn info
-	turnInfo.textContent = `Day ${gameState.turn.turnNumber}`;
+	let turnDate = getTurnDate('week-day');
+	turnInfo.textContent = `${turnDate}`;
 	
 	if(!REPLAY_ENABLED){
 		// Update buttons
@@ -9065,6 +9282,18 @@ function getSelectedPoolHex(){
 	}
 }
 
+function isUnitNextToUnit(unit1, unit2){
+	let neigh = getHexNeighbors(unit1);
+	for(let i = 0; i < neigh.length; i++){
+		let hex = neigh[i];
+		if(hex.q === unit2.q && hex.r === unit2.r){
+			return true;
+		}
+	}
+	return false;
+}
+
+
 
 let EDITOR_ENABLED = 0;
 
@@ -9109,7 +9338,8 @@ function handleHexClick(hex) {
 			u => u.ownerIndex === myPlayer.playerIndex && u.internalType === 'boat'
 		);
 		if(startHex){
-			routeHighlight = findFastestRoute(startHex, hex);
+			// validSeaMoveHexes contains the radius of hexes that are valid.
+			routeHighlight = findFastestRoute(startHex, hex, MAX_BOAT_MOVE_DIST);
 		}
 		
 		let clickedHexTile = getTileAt(hex.q, hex.r);
@@ -9306,26 +9536,45 @@ function handleHexClick(hex) {
 				if(isTypeBoat(selectedUnit.type)){
 					updatePools = false;
 					
-
-					let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
-					let moveCheck = isMoveValid(unitCheck, { q: hex.q, r: hex.r }, myPlayer);
+					//let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
+					let moveCheck = isMoveValid(selectedUnit, { q: hex.q, r: hex.r }, myPlayer);
 					
-					if(!moveCheck.valid){
-						playSound('protect');
-						console.warn("playsound protect");
-					}else{
-						console.warn("isMoveValid = true");
-					}
-					sendToHost({
-						type: ACTION.action_move,
-						unitId: selectedUnit.id,
-						toQ: hex.q,
-						toR: hex.r,
-					});
 					
 					if(moveCheck.valid){
+						let unloadingToTile = null;
+						
+						if(selectedUnit.loadedUnit){
+							let landingTile = getTileAt(hex.q, hex.r);
+							// landing validation is checked in isMoveValid()
+							// just check if we moved on land instead of water to know if unloading started.
+							// allowed to land on "land" (not on "cliff").
+							if(getTileType(landingTile) === 'land'){
+								unloadingToTile = landingTile;
+							}
+						}
+						
+						if(unloadingToTile){
+							sendToHost({
+								type: ACTION.action_unload_unit,
+								unitId: selectedUnit.id,
+								toQ: unloadingToTile.q,
+								toR: unloadingToTile.r,
+							});
+						}else{
+							sendToHost({
+								type: ACTION.action_move,
+								unitId: selectedUnit.id,
+								toQ: hex.q,
+								toR: hex.r,
+							});
+						}
+						
 						deselectUnit();
+						console.warn("isMoveValid = true");
 					}else{
+						console.warn("isMoveValid = false");
+						
+						playSound('protect');
 						// set selected hex to the selected unit position:
 						// caused some crash on addCost() if moved to rock first and then to tree,
 						// probably remembered the selectedHex as the rock hex, so it failed...
@@ -9333,81 +9582,121 @@ function handleHexClick(hex) {
 						updatePools = false; // ensure it wont update pools with the hex we try to move onto.
 						sellUnitBtn.disabled = false;
 					}
+	
 				}else{
 					let poolHex = getSelectedPoolHex();
 					console.log("handleHexClick: selectedUnit: poolHex");
 					console.log(poolHex);
 					
-					// Check if clicking a valid move hex
-					// validMoveHexes = highlighted move area.
-					// poolHex guaranteed to be in validMoveHexes.
-					const isValidMove = validMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
+					let loadedIntoUnit = null;
 					
-					console.warn("isValidMove:",isValidMove);
-					//console.log("isValidMove: "+isValidMove);
-				
-					if (isValidMove) {
+					// check if trying to load selectedUnit into a boat unit:
+					let unitOnHex = getUnitAt(hex);
+	
+					if(unitOnHex){
+						console.warn("unitOnHex");
+						console.warn(unitOnHex);
 						
-						
-						let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
-						let moveCheck = isMoveValid(unitCheck, { q: hex.q, r: hex.r }, myPlayer);
-						
-						if(!moveCheck.valid){
-							playSound('protect');
-							console.warn("playsound protect");
-						}else{
-							console.warn("isMoveValid = true");
+						if(isTypeBoat(unitOnHex.type)){
+							// allow loading only if unit stands next to the boat:
+							if(isUnitNextToUnit(selectedUnit, unitOnHex)){
+								console.warn("loading unit into boat");
+								loadedIntoUnit = unitOnHex;
+							}
 						}
+					}
+					
+					if(loadedIntoUnit){
 						sendToHost({
-							type: ACTION.action_move,
+							type: ACTION.action_load_unit,
 							unitId: selectedUnit.id,
-							toQ: hex.q,
-							toR: hex.r,
+							targetUnitId: loadedIntoUnit.id,
 							poolHex: poolHex,
 						});
+						deselectUnit();
+					}else{
+					
+						// Check if clicking a valid move hex
+						// validMoveHexes = highlighted move area.
+						// poolHex guaranteed to be in validMoveHexes.
+						const isValidMove = validMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
 						
-						if(moveCheck.valid){
-							deselectUnit();
-						}else{
-							// set selected hex to the selected unit position:
-							// caused some crash on addCost() if moved to rock first and then to tree,
-							// probably remembered the selectedHex as the rock hex, so it failed...
-							selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
-							updatePools = false; // ensure it wont update pools with the hex we try to move onto.
-							sellUnitBtn.disabled = false;
-						}
-						//deselectHex();
-					} else {
-						// Clicked somewhere else, check for new selection
-						if(isLandTile){
-							const isInvalidMove = invalidMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
-							if(isInvalidMove){
-								shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, selectedUnit.level);
-								shieldingStartTime = msNowFloor();
-								sellUnitBtn.disabled = false;
-								console.log("clicked hex:");
-								console.log(hex);
-								console.log("selected unit hex:");
-								console.log({q:selectedUnit.q, r:selectedUnit.r});
-								updateSelectedPoolInfo({q:selectedUnit.q, r:selectedUnit.r});
-								updatePools = false; // ensure it wont update pools with the hex we try to move onto.
-								
-								playSound('protect');
-							}
+						console.warn("isValidMove:",isValidMove);
+						//console.log("isValidMove: "+isValidMove);
+					
+						if (isValidMove) {
 							
-							const unitOnHex = getUnitAt(hex.q, hex.r);
-							if(unitOnHex){
-								if (unitOnHex.ownerIndex === localPlayer.playerIndex) {
+							
+							let unitCheck = gameState.units.find(u => u.id === selectedUnit.id);
+							let moveCheck = isMoveValid(unitCheck, { q: hex.q, r: hex.r }, myPlayer);
+							
+							if(!moveCheck.valid){
+								playSound('protect');
+								console.warn("playsound protect");
+							}else{
+								console.warn("isMoveValid = true");
+							}
+							sendToHost({
+								type: ACTION.action_move,
+								unitId: selectedUnit.id,
+								toQ: hex.q,
+								toR: hex.r,
+								poolHex: poolHex,
+							});
+							
+							if(moveCheck.valid){
+								deselectUnit();
+							}else{
+								// set selected hex to the selected unit position:
+								// caused some crash on addCost() if moved to rock first and then to tree,
+								// probably remembered the selectedHex as the rock hex, so it failed...
+								selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
+								updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+								sellUnitBtn.disabled = false;
+							}
+							//deselectHex();
+						} else {
+							// Clicked somewhere else, check for new selection
+							if(isLandTile){
+								const isInvalidMove = invalidMoveHexes.some(h => h.q === hex.q && h.r === hex.r);
+								if(isInvalidMove){
+									shieldingUnits = getShieldingUnits(hex.q, hex.r, myPlayer.playerIndex, selectedUnit.level);
+									shieldingStartTime = msNowFloor();
+									sellUnitBtn.disabled = false;
+									console.log("clicked hex:");
+									console.log(hex);
+									console.log("selected unit hex:");
+									console.log({q:selectedUnit.q, r:selectedUnit.r});
+									updateSelectedPoolInfo({q:selectedUnit.q, r:selectedUnit.r});
+									updatePools = false; // ensure it wont update pools with the hex we try to move onto.
 									
-									if(unitTypeCanMove(unitOnHex.type) && !unitOnHex.hasMoved){
-									//if(unitOnHex.internalType === 'soldier' && !unitOnHex.hasMoved){
-										selectedUnit = unitOnHex; // Select new unit
-										sellUnitBtn.disabled = false;
-										selectedHex = hex;
-										playSound('startmove');
+									playSound('protect');
+								}
+								
+								const unitOnHex = getUnitAt(hex.q, hex.r);
+								if(unitOnHex){
+									if (unitOnHex.ownerIndex === localPlayer.playerIndex) {
+										
+										if(unitTypeCanMove(unitOnHex.type) && !unitOnHex.hasMoved){
+										//if(unitOnHex.internalType === 'soldier' && !unitOnHex.hasMoved){
+											selectedUnit = unitOnHex; // Select new unit
+											sellUnitBtn.disabled = false;
+											selectedHex = hex;
+											playSound('startmove');
+										}else{
+											deselectUnit(); // Deselect
+											selectedHex = hex;
+										}
+									}else{
+										// deselect when clicking enemy unit that was not protected:
+										if(!isInvalidMove){
+											deselectUnit(); // Deselect
+											selectedHex = hex;
+											//console.log("deselected");
+										}
 									}
 								}else{
-									// deselect when clicking enemy unit that was not protected:
+									// deselect when clicked just land that was not protected:
 									if(!isInvalidMove){
 										deselectUnit(); // Deselect
 										selectedHex = hex;
@@ -9415,16 +9704,9 @@ function handleHexClick(hex) {
 									}
 								}
 							}else{
-								// deselect when clicked just land that was not protected:
-								if(!isInvalidMove){
-									deselectUnit(); // Deselect
-									selectedHex = hex;
-									//console.log("deselected");
-								}
+								deselectUnit(); // Deselect
+								deselectHex();
 							}
-						}else{
-							deselectUnit(); // Deselect
-							deselectHex();
 						}
 					}
 				}
@@ -9545,7 +9827,8 @@ function findUnitPossibleMoves(this_selectedUnit, player){
 				const nKey = `${nTile.q},${nTile.r}`;
 				//const nTile = getTileAt(n.q, n.r);
 				// If neighbor exists, is not water, and is not in our pool
-				if (nTile.type !== 'water' && !this_highlightedPool.some(p => p.q === nTile.q && p.r === nTile.r)) {
+				// nTile.type !== 'water'
+				if (!isTileWater(nTile) && !this_highlightedPool.some(p => p.q === nTile.q && p.r === nTile.r)) {
 					borderHexes.set(nKey, nTile);
 				}
 			}
@@ -9734,9 +10017,68 @@ function findFastestRoute1(startHex, endHex, maxDistance = 50) {
 
 
 
-
-
+// use findFastestRoute to get the route from a to b.
+// validSeaMoveHexes contains these results.
 function getReachableHexes(startHex, maxRange = 5) {
+	const visited = new Set([`${startHex.q},${startHex.r},false`]);
+	const results = [];
+
+	// Queue entries: { q, r, distance, usedLand }
+	const queue = [{
+		q: startHex.q,
+		r: startHex.r,
+		distance: 0,
+		usedLand: false
+	}];
+
+	while (queue.length > 0) {
+		const { q, r, distance, usedLand } = queue.shift();
+
+		if (distance === maxRange) continue;
+
+		const neighbors = getHexNeighbors(q, r);
+
+		for (const n of neighbors) {
+			const tile = getTileAt(n.q, n.r);
+			const isLand = getTileType(tile) === 'land';
+			const nextUsedLand = usedLand || isLand;
+
+			// Cannot enter more than one land hex
+			if (usedLand && isLand) continue;
+
+			// Units always block
+			const unitBlocking = gameState.units.some(
+				u => u.q === n.q && u.r === n.r
+			);
+			if (unitBlocking) continue;
+		
+		// rock objects always block
+		if(tile && tile.object === 'rock2') continue;
+
+			const key = `${n.q},${n.r},${nextUsedLand}`;
+			if (visited.has(key)) continue;
+			visited.add(key);
+
+			results.push({ q: n.q, r: n.r });
+
+			// Only continue BFS from water, or from land if we just entered it
+			if (!isLand) {
+				queue.push({
+					q: n.q,
+					r: n.r,
+					distance: distance + 1,
+					usedLand: nextUsedLand
+				});
+			}
+		}
+	}
+
+	return results;
+}
+
+
+// use findFastestRoute to get the route from a to b.
+function getReachableHexes2(startHex, maxRange = 5) {
 	const visited = new Set([`${startHex.q},${startHex.r}`]);
 	const results = [];
 
@@ -9784,7 +10126,9 @@ function getReachableHexes(startHex, maxRange = 5) {
 
 
 let validSeaMoveHexes = [];
-
+let BOAT_MOVE_DIST = 6; // move dist per day
+let BOAT_MOVE_DAYS = 7; // days until explosion.
+let MAX_BOAT_MOVE_DIST = BOAT_MOVE_DIST*BOAT_MOVE_DAYS; // max dist to show with findfastestroute()
 
 
 function updateHighlights() {
@@ -9800,7 +10144,7 @@ function updateHighlights() {
 	if (selectedUnit) {
 		poolStartHex = selectedUnit;
 		if(isTypeBoat(selectedUnit.type)){
-			validSeaMoveHexes = getReachableHexes(poolStartHex, 6);
+			validSeaMoveHexes = getReachableHexes(poolStartHex, BOAT_MOVE_DIST);
 		}
 	} else if (selectedHex) {
 		poolStartHex = selectedHex;
@@ -9875,7 +10219,8 @@ function updateHighlights() {
 				const nKey = `${n.q},${n.r}`;
 				const nTile = getTileAt(n.q, n.r);
 				// If neighbor exists, is not water, and is not in our pool
-				if (nTile && nTile.type !== 'water' && !highlightedPool.some(p => p.q === n.q && p.r === n.r)) {
+				// nTile && nTile.type !== 'water'
+				if (!isTileWater(nTile) && !highlightedPool.some(p => p.q === n.q && p.r === n.r)) {
 					borderHexes.set(nKey, n);
 				}
 			}
@@ -9955,6 +10300,13 @@ function openBuildPopup(type) {
 		let canAfford = canAffordCheck(poolSavings, item.cost);
 		let isDisabled = false;
 		
+		let extraInfo = "";
+		if(item.type === "boat" || item.type === "mine"){
+			if(!selectedUnit){
+				extraInfo = "<br>(Select Unit)";
+			}
+		}
+		
 		// boats can be built only if an unit was selected:
 		if(item.type === "boat" && !selectedUnit){
 			canAfford = false;
@@ -9981,7 +10333,7 @@ function openBuildPopup(type) {
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
 			<span class="elem-left"><img src="${imagePath}" width="50"></span>
-			<span class="elem-center cost"><span style="color:white">${item.visibleName}</span></span>
+			<span class="elem-center cost"><span style="color:white">${item.visibleName}${extraInfo}</span></span>
 			<span class="elem-right cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
 		`;
 		
@@ -10191,34 +10543,89 @@ function badMove(reason){
 // --- HOST-SIDE VALIDATION ---
 
 function isMoveValid(unit, toHex, player) {
+	if (unit.hasMoved){
+		return badMove('Unit has already moved');
+	}
+	if(!unitTypeCanMove(unit.type)){
+		return badMove('Unit type cannot move');
+	}
+	
+	// BOAT UNITS MOVEMENT:
 	if(isTypeBoat(unit.type)){
 		
-		if (unit.hasMoved){
-			return badMove('Unit has already moved.');
+		let poolStartHex = {q: unit.q, r: unit.r}; 
+		let validHexes = getReachableHexes(poolStartHex, BOAT_MOVE_DIST);
+		
+		// wont allow moving onto land unless its next to water (landing checked later).
+		if(!validHexes.some(h => h.q === toHex.q && h.r === toHex.r)){
+			return badMove('out_of_range');
 		}
-		if(!unitTypeCanMove(unit.type)){
-			return badMove('Unit type cannot move.');
+		
+		const targetUnit = getUnitAt(toHex.q, toHex.r);
+		
+		/////////////////
+		// unloading aka landing validation:
+		//
+		let loadedUnit = unit.loadedUnit;
+		
+		if(loadedUnit){
+			let toTile = getTileAt(toHex.q, toHex.r);
+			
+			if(getTileType(toTile) === 'land'){
+				//if (toTile.object && toTile.object === 'rock2'){
+				//	return badMove('blocked by rock');
+				//}
+				
+				if (toTile.object && toTile.object === 'rock2' && loadedUnit.level < 2){
+					return badMove('low_level');
+				}
+				
+				const shieldLevel = getShieldLevelFromTile(toTile, player.playerIndex);
+
+				if (targetUnit) {
+					if (targetUnit.ownerIndex === player.playerIndex) {
+						return badMove('Cannot move onto own unit.'); // Should be caught by pool check, but safe
+					}
+					if (loadedUnit.level > shieldLevel && loadedUnit.level > targetUnit.level) {
+						return goodMove('unload_boat_attack', targetUnit);
+					} else {
+						return badMove('low_level');
+					}
+				}
+				// No target unit
+				if (toTile.ownerIndex !== -1) { // It's enemy land
+					if (loadedUnit.level > shieldLevel) {
+						return goodMove('unload_boat');
+					} else {
+						// todo: think again....
+						if(toTile.ownerIndex !== loadedUnit.ownerIndex){
+							return badMove('low_level');
+						}else{
+							return goodMove('unload_boat');
+						}
+					}
+				} else { // It's unowned land
+					// New rule: Shields do not block movement to unowned land
+					return goodMove('unload_boat');
+				}
+				
+				return goodMove('unload_boat');
+			}
 		}
-		if(getTileAt(toHex.q, toHex.r)){
-			return badMove('not_water');
-		}
-		if(getUnitAt(toHex.q, toHex.r)){
+		
+		// dont allow moving onto other boats:
+		// todo: probably not needed here anymore since units are checked earlier.
+		if(targetUnit){
 			return badMove('not_empty');
 		}
-		return goodMove();
+		
+		
+		return goodMove('move');
 	}
 	
 	
 	// OTHER UNIT TYPES:
 	
-	if (unit.hasMoved){
-		return badMove('Unit has already moved.');
-	}
-	if(!unitTypeCanMove(unit.type)){
-	//if(unit.internalType === 'castle'){
-		return badMove('Unit type cannot move.');
-	}
-
 	const toTile = getTileAt(toHex.q, toHex.r);
 	if (!isTileLand(toTile)){
 		return badMove('only land type allowed.');
@@ -10682,12 +11089,13 @@ function executeAction(playerId, action) {
 						fromR,
 						toQ, 
 						toR,
+						route: unit.route,
 					};
 					
 					// Move unit
-					unit.q = toQ;
-					unit.r = toR;
-					unit.hasMoved = 1;
+					//unit.q = toQ;
+					//unit.r = toR;
+					//unit.hasMoved = 1;
 					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: toQ, r: toR, hasMoved: 1 });
 					
 					sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
@@ -10884,6 +11292,110 @@ function executeAction(playerId, action) {
 			}
 			break;
 		}
+		case ACTION.action_unload_unit: {
+			console.warn("executeAction action_unload_unit");
+			console.warn(action);
+			
+			const { unitId, toQ, toR } = action;
+			
+			let unit = getUnitById(unitId);
+			let loadedUnit = unit.loadedUnit;
+			
+			let tile = getTileAt(toQ, toR);
+			
+			if(getTileType(tile) === 'land'){
+				
+				// double check move validity:
+				const moveCheck = isMoveValid(unit, { q: toQ, r: toR }, player);
+				
+				if(moveCheck.valid){
+					// todo: test these later:
+					// moveCheck.action === 'unload_boat_attack'
+					// moveCheck.action === 'unload_boat'
+			
+					const oldOwnerIndex = tile.ownerIndex;
+					const oldObject = tile.object;
+					const oldSavings = tile.savings;
+					
+					actionForUndo = {
+						type: 'unload_unit', 
+						unit: unit, // the unit that unloads an unit.
+						loadedUnit: loadedUnit, // the unit to be unloaded.
+						
+						didClaim: tile.ownerIndex !== playerIndex,
+						oldSavings: oldSavings,
+						oldOwnerIndex: oldOwnerIndex,
+						clearedObject: oldObject,
+						//poolHex: poolHex,
+						
+						actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+					};
+					
+					let newUnit = loadedUnit;
+					newUnit.id = newUnitID();
+					newUnit.q = toQ;
+					newUnit.r = toR;
+					newUnit.hasMoved = true;
+					
+					updates.push({ type: ACTION.unit_added, unit: newUnit });
+					
+					// send unload message to delete the load and set hasMoved to true:
+					updates.push({ type: ACTION.unit_unloaded, unitId: unitId });
+					//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
+					
+					
+					let playMoveUnit = true;
+					
+					// check if the unloaded unit killed some other unit:
+					if (moveCheck.action === 'unload_boat_attack') {
+						const targetUnit = moveCheck.target;
+						actionForUndo.killedUnit = { ...targetUnit }; // Store copy
+						//gameState.units = gameState.units.filter(u => u.id !== targetUnit.id);
+						updates.push({ type: ACTION.unit_removed, unitId: targetUnit.id });
+						
+						if(!isAiPlayer(playerIndex)){
+							if(targetUnit.internalType === 'castle'){ // CASTLE_DATA[targetUnit.type]
+								sounds.push({name:'killCastle', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
+							}else{
+								sounds.push({name:'kill', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
+							}
+							playMoveUnit = false;
+						}
+					}
+					
+					if(playMoveUnit){
+						sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+					}
+				}
+			}
+			
+		}
+		break;
+		case ACTION.action_load_unit: {
+			console.warn("executeAction action_load_unit");
+			console.warn(action);
+			
+			const { unitId, targetUnitId, poolHex } = action;
+			
+			let unit = getUnitById(unitId);
+			let targetUnit = getUnitById(targetUnitId);
+			
+			actionForUndo = {
+				type: 'load_unit', 
+				poolHex: poolHex,
+				unit: unit, // the unit to be loaded into boat.
+				targetUnit: targetUnit, // the boat being loaded.
+				actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+			};
+			
+			updates.push({ type: ACTION.unit_loaded, unitId: unitId, targetUnitId: targetUnitId});
+			
+			updates.push({ type: ACTION.unit_removed, unitId: unitId });
+			//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
+			
+			
+		}
+		break;
 		case ACTION.action_build_object: {
 			console.warn("executeAction action_build_object");
 			console.warn(action);
@@ -11363,7 +11875,8 @@ function executeAction(playerId, action) {
 					unit.q = lastAction.fromQ;
 					unit.r = lastAction.fromR;
 					unit.hasMoved = 0;
-					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: unit.q, r: unit.r, hasMoved: 0, wasUndo: 1 });
+					let route = lastAction.route ?? undefined;
+					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: unit.q, r: unit.r, hasMoved: 0, wasUndo: 1, route: route });
 					
 					unitActionHex = {q: unit.q, r: unit.r};
 				}
@@ -11561,6 +12074,12 @@ function executeAction(playerId, action) {
 				}
 				
 
+			} else if (lastAction.type === 'load_unit'){
+				updates.push({ type: ACTION.unit_added, unit: lastAction.unit });
+				updates.push({ type: ACTION.unit_load_reset, unitId: lastAction.targetUnit.id});
+				
+				updates.push({ type: ACTION.unit_move_reset, hasMoved: false, unitId: lastAction.unit.id});
+				
 			} else if (lastAction.type === 'build_object'){
 				addCost(actionPool, lastAction.cost, poolHex, action.type);
 				
@@ -12424,9 +12943,10 @@ function processEndOfDay(){
 	for(let i = 0; i < gameState.units.length; i++){
 		let unit = gameState.units[i];
 		
-		if(unit.daysLeft !== undefined){
-			unit.daysLeft--;
-			if(unit.daysLeft < 0){
+		if(unit.dayBuilt !== undefined){
+			let daysPassed = gameState.turn.turnNumber - unit.dayBuilt;
+			
+			if(daysPassed > unit.maxDays){
 				// kill unit and explode:
 				let killData = killUnit(unit);
 				batchActions.push(...killData);
@@ -12450,7 +12970,7 @@ function processEndOfDay(){
 		const tile = gameState.map.tilesData[t];
 
 		// add random trees to land tiles without any objects or units:
-		if(tile.type === 'land'){
+		if(getTileType(tile) === 'land'){
 			landtilesCount++;
 			
 			// check if there is object on tile for grass/cross functionality:
@@ -12484,7 +13004,7 @@ function processEndOfDay(){
 					for(let i = 0; i < neigh.length; i++){
 						let n = neigh[i];
 						const nTile = getTileAt(n.q, n.r);
-						if(nTile && nTile.type === 'land'){
+						if(getTileType(nTile) === 'land'){
 							// dont allow grow if there is an object:
 							let allowGrow = !nTile.object;
 							// allow if there is an invisible mine:
@@ -13093,7 +13613,8 @@ function addUnit(unit){
 		unit.creationTime = msNowFloor(); 
 		unit.animationFinished = 0; // ensure no animation will be visible.
 		unit.animationStyle = 2; // 2 = appear from zero size to normal size, 0 = no animation.
-		unit.daysLeft = 7; // how many days left until it explodes
+		unit.maxDays = BOAT_MOVE_DAYS; // how many days until it explodes
+		unit.dayBuilt = gameState.turn.turnNumber; // which turn it was made. used to calculate remaining days.
 		if(!unit.name){
 			unit.name = findNextFreeRandomUnitName(unit.ownerIndex);
 		}
@@ -13520,11 +14041,15 @@ function handleHostData(data) {
 				//centerAndSelectFirstUnit();
 				// probably better to not select it, since if it was not my turn,
 				// then its ambiguous which unit should be selected/centered,
-				// so its more logical if none of the players gets unit selected at start?
-				centerFirstUnit(); // dont select unit, just center to it.
+				// so its more logical if none of the players gets unit selected at start.
+				startZoomPos = centerFirstUnit(); // dont select unit, just center to it.
 			}else{
-				centerFirstUnit(); // dont select unit, just center to it.
+				startZoomPos = centerFirstUnit(); // dont select unit, just center to it.
 			}
+			console.warn("startZoomPos");
+			console.warn(startZoomPos);
+			startZoom();
+			
 			addCurrentTurnChatMessage();
 		}
 		break;
@@ -13560,9 +14085,14 @@ function handleHostData(data) {
 				console.log("localPlayer");
 				console.log(localPlayer);
 				addSystemChatMessage("Joined as spectator");
+				
 				//alert("Game in progress. Joining as spectator.");
 			}
 			showPage('game');
+			
+			startZoomPos = centerFirstUnit();
+			startZoom(true);
+				
 			updateGameUI();
 		}
 		break;
@@ -13633,6 +14163,32 @@ function handleHostData(data) {
 					undoBtn.classList.add("disabled");
 				}
 				//console.warn("undo counter updated: "+data.undoCounter);
+			}
+		}
+		break;
+		case ACTION.unit_unloaded: {
+			if(data.unitId !== undefined){
+				let unit = getUnitById(data.unitId);
+	
+				// unload the unit by removing loadedUnit:
+				delete unit.loadedUnit;
+				// set unloading unit as moved:
+				unit.hasMoved = true;
+				
+				needsUIUpdate = true;
+				updateHighlights();
+			}
+		}
+		break;
+		case ACTION.unit_loaded: {
+			if(data.unitId !== undefined && data.targetUnitId !== undefined){
+				let unit = getUnitById(data.unitId);
+				let targetUnit = getUnitById(data.targetUnitId);
+				// load the unit:
+				targetUnit.loadedUnit = unit;
+				
+				needsUIUpdate = true;
+				updateHighlights();
 			}
 		}
 		break;
@@ -13819,6 +14375,18 @@ function handleHostData(data) {
 			//}
 		}
 		break;
+		
+		case ACTION.unit_load_reset: {
+			const unit = gameState.units.find(u => u.id === data.unitId);
+			if (unit) {
+				delete unit.loadedUnit;
+			}
+			needsUIUpdate = true;
+			updateHighlights();
+			
+			//updateLocalPoolsInfo();
+		}
+		break;
 		case ACTION.unit_move_reset: {
 			const unit = gameState.units.find(u => u.id === data.unitId);
 			if (unit) {
@@ -13833,6 +14401,20 @@ function handleHostData(data) {
 		case ACTION.unit_moved: {
 			const unit = gameState.units.find(u => u.id === data.unitId);
 			if (unit) {
+				if(isTypeBoat(unit.type)){
+					let startHex = {q:unit.q, r:unit.r};
+					let endHex = {q:data.q, r:data.r};
+					
+					if(data.route !== undefined){
+						// revert back to previous route when undoing:
+						unit.route = data.route;
+					}else{
+						// calculate new route:
+						unit.route = findFastestRoute(startHex, endHex, MAX_BOAT_MOVE_DIST);
+					}
+					console.warn("unit.route");
+					console.warn(unit.route);
+				}
 				unit.q = data.q;
 				unit.r = data.r;
 				unit.hasMoved = data.hasMoved;
@@ -14097,6 +14679,8 @@ function handleClientData(peerId, data) {
 		case ACTION.action_end_turn:
 		case ACTION.check_balance:
 		case ACTION.action_build_object:
+		case ACTION.action_load_unit:
+		case ACTION.action_unload_unit:
 			//console.log("handleClientData executeAction "+data.type);
 			if (gameState.settings.gameStarted) {
 				executeAction(peerId, data);
@@ -15073,6 +15657,8 @@ async function decompressToString(uint8) {
 
 // prepare state for save, delete unnecessary keys and set animations finished.
 function prepareSavedGameState(state){
+	console.warn("prepareSavedGameState state:");
+	console.warn(state);
 	delete state.map.tiles;
 	for(let i = 0; i < state.map.tilesData.length; i++){
 		let tile = state.map.tilesData[i];
@@ -15127,9 +15713,10 @@ function prepareLoadedGameState(state){
 async function saveGameToDB(gameState) {
 	if(!db) return;
 	if(REPLAY_ENABLED) return;
+	if(getMyPlayer().isSpectator) return;
 	
 	let saveDate = new Date().toISOString();
-
+	
 	let initialStateToSave = {
 		// initial state is never modified, so its safe to leave json parse out.
 		initialState: prepareSavedGameState(deepClone(INITIAL_STATE)), 
@@ -15174,7 +15761,7 @@ async function saveGameToDB(gameState) {
 			// Entry exists. Compare SESSION_ID.
 			if (existing.SESSION_ID !== stateToSave.SESSION_ID) {
 				console.warn(
-					`Refusing to save: entry with roomName=${stateToSave.roomName} already exists with a different SESSION_ID`
+					`Refusing to save: entry with roomName=${stateToSave.roomName} already exists with a different SESSION_ID. Intended behaviour if testing with different windows.`
 				);
 				// Abort the transaction to avoid overwrite
 				transaction.abort();
@@ -16084,7 +16671,7 @@ function updateTileOutlines(q, r, allowCreation = true, state = null){
 		let n = neigh[i];
 		const nTile = getTileAt(n.q, n.r, state);
 		let addline = 0;
-		if (nTile && nTile.type === 'water') {
+		if (getTileType(nTile) === 'water') {
 			addline = 1;
 		}
 		// if out of bounds, add outlines also:
@@ -16360,7 +16947,7 @@ function spawnPlayersRandom() {
 		const q = tile.q;
 		const r = tile.r;
 		
-		if (tile.type === 'land') {
+		if (getTileType(tile) === 'land') {
 			landHexes.push({q, r});
 		}
 	}
@@ -16378,7 +16965,7 @@ function spawnPlayersRandom() {
 			spawnHex = landHexes.pop();
 			neighbors = getHexNeighbors(spawnHex.q, spawnHex.r)
 				.map(h => ({ ...h, tile: getTileAt(h.q, h.r) }))
-				.filter(h => h.tile && h.tile.type === 'land');
+				.filter(h => getTileType(h.tile) === 'land');
 			
 			if (neighbors.length >= 4) {
 				found = true;
@@ -16830,7 +17417,7 @@ function setProtectedTiles(){
 		const tile = gameState.map.tilesData[t];
 		const q = tile.q;
 		const r = tile.r;
-		if(tile.type === 'land'){
+		if(getTileType(tile) === 'land'){
 			if(getUnitAt(q,r)){
 				// if unit on tile, set protected
 				tile.isProtected = 1; // use short value to make json smaller when saving.
