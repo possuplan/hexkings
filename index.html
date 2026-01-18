@@ -286,6 +286,12 @@ label {
 	margin-bottom: 7px;
 }
 
+.input-group-nogap {
+	display: flex;
+	margin-bottom: 7px;
+}
+
+
 .input-group > div {
 	flex: 1;
 }
@@ -1041,6 +1047,40 @@ button.redbutton:hover {
 
 
 
+
+
+#move-confirmation-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width:100%;
+}
+#move-confirmation-wrapper2 {
+	box-shadow: 15px 15px 23px rgba(0, 0, 0, 1);
+	width:90%;
+	max-width:400px;
+}
+
+
+/* Popup container */
+#move-confirmation-popup {
+	position: fixed;
+	inset: 0;
+	display: none;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 9999;
+}
+
+/* Visible state */
+#move-confirmation-popup.active {
+	display: flex;
+}
+
+
+
 #music-volume {
 	width: 100%;
 }
@@ -1176,6 +1216,83 @@ input.disabled {
 	background-image: url('images/ui/balance.png');
 }
 
+
+.scrollable {
+	scrollbar-width: thin;
+	scrollbar-color: #555 #1e1e1e;
+}
+
+.scrollable::-webkit-scrollbar {
+	width: 10px;
+}
+
+.scrollable::-webkit-scrollbar-track {
+	background: #1e1e1e;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+	background-color: #555;
+	border-radius: 6px;
+	border: 2px solid #1e1e1e;
+}
+
+
+.game-logo {
+	background-image: url('images/logo256_2.png');
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	width:100%;
+	height:40px;
+}
+
+.image {
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	padding:0px;
+	display:flex;
+}
+.settings-image {
+	width: 54px;
+	height: 54px;
+}
+.settings-image-elem {
+	flex: 0 0 54px; /* fixed width, other elems will take all space */
+}
+.settings-percent-input {
+	margin:0 !important;
+	padding-right: 0 !important;
+	height:32px !important;
+	padding-left: 7px !important;
+}
+
+
+
+.image-tree {
+	background-image: url('images/orig-scaled/128x128/tree.png');
+}
+.image-rock {
+	background-image: url('images/orig-scaled/128x128/rock2c.png');
+}
+.image-grass {
+	background-image: url('images/orig-scaled/128x128/grass.png');
+}
+.image-mine {
+	background-image: url('images/orig-scaled/128x128/mine1.png');
+}
+.image-landmine {
+	background-image: url('images/orig-scaled/128x128/landmine1.png');
+}
+.image-soldier {
+	background-image: url('images/orig-scaled/128x128/soldier1.png');
+}
+.image-castle {
+	background-image: url('images/orig-scaled/128x128/castle1.png');
+}
+.image-boat {
+	background-image: url('images/orig-scaled/128x128/sailboat.png');
+}
 
 
 
@@ -1474,6 +1591,22 @@ input.disabled {
 </div>
 
 
+<div id="move-confirmation-popup" hidden>
+	<div id="move-confirmation-wrapper">
+		<div id="move-confirmation-wrapper2" class="ui-menu ui-panel settings-panel">
+			<p style="color:#FFFF00">Note: Undo is no longer possible after claiming an enemy tile.</p>
+
+			<label style="display:inline-block">
+				<input type="checkbox" id="move-confirmation-popup-dont-show-again">
+				Do not show this again
+			</label>
+
+			<button id="move-confirmation-popup-confirm-button">OK</button>
+		</div>
+	</div>
+</div>
+
+
 <!-- ingame settings -->
 <div id="settings-ui">
 	<div id="settings-ui-wrapper">
@@ -1524,7 +1657,7 @@ input.disabled {
 <!-- lobby settings -->
 <div id="game-settings-ui">
 	<div id="game-settings-ui-wrapper">
-		<div id="game-settings-ui-wrapper2" class="ui-menu ui-panel settings-panel">
+		<div id="game-settings-ui-wrapper2" class="ui-menu ui-panel settings-panel scrollable">
 			<div class="input-group">
 				<div style="flex: 5; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
 					Settings
@@ -1603,39 +1736,64 @@ input.disabled {
 			
 			<br>
 			<div>
-				<div class="settings-title-nopad">
-					Trees chance per tile:
-				</div>
-				<div class="input-group" style="align-items:center">
-					<div style="flex: 4;">
-						<input type="range" id="tree-percent" min="0" max="100" value="15" disabled>
+				<div class="input-group-nogap">
+					<div class="settings-image-elem">
+						<div class="image settings-image image-tree"></div>
 					</div>
 					<div style="flex: 1;">
-						<input type="text" id="tree-percent-text" style="margin:0; padding-right: 0;" disabled>
+						<div class="settings-title-nopad">
+							Trees chance per tile:
+						</div>
+						<div class="input-group" style="align-items:center">
+							<div style="flex: 4;">
+								<input type="range" id="tree-percent" min="0" max="100" value="15" disabled>
+							</div>
+							<div style="flex: 1;">
+								<input type="text" id="tree-percent-text" class="settings-percent-input" disabled>
+							</div>
+						</div>
 					</div>
 				</div>
-				<div class="settings-title-nopad">
-					Rocks chance per tile:
-				</div>
-				<div class="input-group" style="align-items:center">
-					<div style="flex: 4;">
-						<input type="range" id="rock-percent" min="0" max="100" value="15" disabled>
-					</div>
-					<div style="flex: 1;">
-						<input type="text" id="rock-percent-text" style="margin:0; padding-right: 0;" disabled>
-					</div>
-				</div>
-				<div class="settings-title-nopad">
-					Mines chance per tile:
-				</div>
-				<div class="input-group" style="align-items:center">
-					<div style="flex: 4;">
-						<input type="range" id="mine-percent" min="0" max="100" value="15" disabled>
+
+				<div class="input-group-nogap">
+					<div class="settings-image-elem">
+						<div class="image settings-image image-rock"></div>
 					</div>
 					<div style="flex: 1;">
-						<input type="text" id="mine-percent-text" style="margin:0; padding-right: 0;" disabled>
+						<div class="settings-title-nopad">
+							Rocks chance per tile:
+						</div>
+						<div class="input-group" style="align-items:center">
+							<div style="flex: 4;">
+								<input type="range" id="rock-percent" min="0" max="100" value="15" disabled>
+							</div>
+							<div style="flex: 1;">
+								<input type="text" id="rock-percent-text" class="settings-percent-input" disabled>
+							</div>
+						</div>
 					</div>
 				</div>
+				
+				<div class="input-group-nogap">
+					<div class="settings-image-elem">
+						<div class="image settings-image image-mine"></div>
+					</div>
+					<div style="flex: 1;">
+						<div class="settings-title-nopad">
+							Mines chance per tile:
+						</div>
+						<div class="input-group" style="align-items:center">
+							<div style="flex: 4;">
+								<input type="range" id="mine-percent" min="0" max="100" value="15" disabled>
+							</div>
+							<div style="flex: 1;">
+								<input type="text" id="mine-percent-text" class="settings-percent-input" disabled>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				
 			</div>
 
 		</div>
@@ -1651,7 +1809,9 @@ input.disabled {
 
 <div id="start-page" class="page active">
 	<div class="container">
-		<h1>Hex Kings</h1>
+		<div class="game-logo">
+		</div>
+		<!-- <h1 style="color:yellow">👑 Hex Kings 👑</h1> -->
 		<label for="player-name">Your Name:</label>
 		
 		<div class="input-group">
@@ -1727,7 +1887,7 @@ input.disabled {
 			</div>
 			<div style="flex:1">
 				<span class="label joined-players-text">Players:</span>
-				<div id="host-player-list" class="player-list"></div>
+				<div id="host-player-list" class="player-list scrollable"></div>
 				
 				<div class="input-group">
 					<button id="add-ai-btn">Add AI</button>
@@ -1848,7 +2008,7 @@ input.disabled {
 			</div>
 			<div style="flex:1">
 				<span class="label joined-players-text">Players:</span>
-				<div id="lobby-player-list" class="lobby-player-list"></div>
+				<div id="lobby-player-list" class="lobby-player-list scrollable"></div>
 			</div>
 		</div>
 		
@@ -1941,9 +2101,9 @@ input.disabled {
 				</div>
 			</div>
 			
-			<div id="player-ui-list" class="ui-panel"></div>
+			<div id="player-ui-list" class="ui-panel scrollable"></div>
 			<div id="chat-ui" class="ui-panel">
-				<div id="chat-messages"></div>
+				<div id="chat-messages" class="scrollable"></div>
 				<input type="text" inputmode="text" id="chat-input" maxlength="200" placeholder="Type message...">
 			</div>
 			
@@ -4049,6 +4209,8 @@ imageAssets = {
 	'ui-wages':   {path:'images/ui/wages.png', isUi: true},
 	'ui-balance':   {path:'images/ui/balance.png', isUi: true},
 	'ui-build':   {path:'images/ui/build.png', isUi: true},
+	
+	'ui-logo':   {path:'images/logo256_2.png', isUi: true},
 
 
 	// ingame graphics:
@@ -5080,6 +5242,34 @@ settingsBtn.addEventListener("click", (e) => {
 closeSettingsBtn.addEventListener("click", () => {
 	toggleSettings();
 });
+
+
+const moveConfirmationPopup = document.getElementById('move-confirmation-popup');
+const moveConfirmationWrapper = document.getElementById('move-confirmation-wrapper');
+const moveConfirmationWrapper2 = document.getElementById('move-confirmation-wrapper2');
+
+const moveConfirmationCheckbox = document.getElementById('move-confirmation-popup-dont-show-again');
+const moveConfirmationButton = document.getElementById('move-confirmation-popup-confirm-button');
+
+setLocalStorageItem("hideMoveConfirmationPopup", "false");
+
+function showMoveConfirmationPopup(){
+	// Show popup only if user did not opt out
+	if(getLocalStorageItem("hideMoveConfirmationPopup") !== "true"){
+		moveConfirmationPopup.hidden = false;
+		moveConfirmationPopup.style.display = "flex";
+	}
+}
+
+// Handle confirmation
+moveConfirmationButton.addEventListener("click", () => {
+	if(moveConfirmationCheckbox.checked){
+		setLocalStorageItem("hideMoveConfirmationPopup", "true");
+	}
+	moveConfirmationPopup.hidden = true;
+	moveConfirmationPopup.style.display = "none";
+});
+
 
 
 
@@ -17649,6 +17839,11 @@ function handleOutside(e) {
 		settingsUi.style.display = "none";
 	}
 	
+	// move undo confirmation:
+	if (!moveConfirmationWrapper2.contains(e.target)) {
+		//moveConfirmationPopup.style.display = "none";
+	}
+	
 	// Build popup
 	if (
 		!buildPopup.contains(e.target) &&
@@ -17685,6 +17880,7 @@ document.addEventListener('mousedown', (e) => {
 		pickerWrapper.contains(e.target) ||
 		gameSettingsUiWrapper2.contains(e.target) ||
 		settingsUiWrapper2.contains(e.target) ||
+		//moveConfirmationWrapper2.contains(e.target) || // not used, popup must be closen by ok button.
 		buildPopup.contains(e.target) ||
 		buildOtherBtn.contains(e.target) ||
 		buildSoldierBtn.contains(e.target) ||
