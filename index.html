@@ -361,8 +361,8 @@ label {
 }
 
 .color-box {
-	width: 30px;
-	height: 30px;
+	width: 34px;
+	height: 34px;
 	border-radius: 50%;
 	cursor: pointer;
 	---border: 2px solid transparent;
@@ -1821,7 +1821,7 @@ input.disabled {
 		
 		<label for="game-name-input">Game Room Name:</label>
 		<input type="text" id="game-name-input" value="default-room">
-		<div class="input-group" style="display: flex; gap: 10px; align-items: center;">
+		<div class="input-group" style="display: flex; gap: 10px; align-items: center; margin-top: 7px;">
 			<label for="server-name-input">Server:</label>
 			<select id="server-name-input">
 			
@@ -6269,6 +6269,9 @@ function drawCalligraphyLine(x1, y1, x2, y2, penWidth, penAngle = Math.PI/2) {
 
 
 
+
+
+
 let waterShadingHeight = 20;
 
 
@@ -6295,6 +6298,48 @@ function norm180(a) {
 	return ((a + Math.PI) % tau + tau) % tau - Math.PI;
 }
 
+function getEdgeCorners(px, py, ival, scale = 1){
+	let radius = HEX_SIZE*scale;
+	const x1 = px + radius * HEX_CORNERS[ival].x;
+	const y1 = py + radius * HEX_CORNERS[ival].y;
+	const x2 = px + radius * HEX_CORNERS[ival+1].x;
+	const y2 = py + radius * HEX_CORNERS[ival+1].y;
+	return {x1, y1, x2, y2};
+}
+
+
+function drawLandShading(px, py, drawLines, color = "rgba(0,0,0, 0.2)"){
+	if(drawLines.length > 0){
+		
+		let step = 0.12;
+		
+		for (let i = 0; i < drawLines.length; i++) {
+			let ival = drawLines[i];
+
+			let edge1 = getEdgeCorners(px, py, ival, 1); // outside edge
+			let edge2 = getEdgeCorners(px, py, ival, 1-step); // inside edge
+			let edge3 = getEdgeCorners(px, py, ival, 1-step*2); // most inside edge
+
+			ctx.fillStyle = "rgba(0,0,0, 0.2)";
+			ctx.beginPath();
+			ctx.moveTo(edge1.x1, edge1.y1);
+			ctx.lineTo(edge1.x2, edge1.y2);
+			ctx.lineTo(edge2.x2, edge2.y2);
+			ctx.lineTo(edge2.x1, edge2.y1);
+			ctx.closePath();
+			ctx.fill();
+			
+			ctx.fillStyle = "rgba(0,0,0, 0.1)";
+			ctx.beginPath();
+			ctx.moveTo(edge2.x1, edge2.y1);
+			ctx.lineTo(edge2.x2, edge2.y2);
+			ctx.lineTo(edge3.x2, edge3.y2);
+			ctx.lineTo(edge3.x1, edge3.y1);
+			ctx.closePath();
+			ctx.fill();
+		}
+	}
+}
 
 
 // 2. Update drawWaterShading to calculate the "Screen Down" vector
@@ -6962,7 +7007,7 @@ let drawtextures = 1;
 
 
 
-function drawMapShading(){
+function drawMapShading(landOnly = false){
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		const tile = gameState.map.tilesData[t];
 		const q = tile.q;
@@ -6980,7 +7025,7 @@ function drawMapShading(){
 		// draw shadows/shading for land tiles next to water:
 		// draw map outlines:
 		// renderoutlines render outlines
-		if(getTileType(tile) !== 'water') {
+		if(getTileType(tile) !== 'water'){
 			if(tile.outline){
 				let player = getPlayerByIndex(tile.ownerIndex);
 				let color;
@@ -6990,7 +7035,11 @@ function drawMapShading(){
 					color = hexToRgba(darkenHexColor("#705F4B", 0.8), 0.8);
 				}
 				
-				drawWaterShading(x, y, tile.outline, color);
+				if(!landOnly){
+					drawWaterShading(x, y, tile.outline, color);
+				}else{
+					drawLandShading(x, y, tile.outline);
+				}
 			}
 		}
 	}
@@ -8685,6 +8734,9 @@ function render() {
 	
 	// MAP TILE DRAWING:
 	drawMapTiles();
+	
+	// MAP LAND SHADING (3d effect):
+	drawMapShading(true);
 
 	// HIGHLIGHTS DRAWING:
 	if(!previewdraw){
@@ -15068,7 +15120,7 @@ function initPeerJS() {
 			// initializing when connection is opened. players list is not yet created.
 			localPlayer.id = id;
 			
-			connectionStatus.textContent = 'Connected to Peer server.';
+			connectionStatus.textContent = 'Connected to server.';
 			console.log('My peer ID is: ' + id);
 			// Enable buttons
 			hostBtn.disabled = false; // DOMContentLoaded sets to false so we can still host while waiting for connection.
