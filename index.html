@@ -1272,18 +1272,38 @@ input.disabled {
 .image-tree {
 	background-image: url('images/orig-scaled/128x128/tree.png');
 }
+.image-tree.winter {
+	background-image: url('images/orig-scaled/128x128/winter/tree.png');
+}
+
 .image-rock {
 	background-image: url('images/orig-scaled/128x128/rock2c.png');
 }
+.image-rock.winter {
+	background-image: url('images/orig-scaled/128x128/winter/rock.png');
+}
+
 .image-grass {
 	background-image: url('images/orig-scaled/128x128/grass.png');
 }
+.image-grass.winter {
+	background-image: url('images/orig-scaled/128x128/winter/grass.png');
+}
+
 .image-mine {
 	background-image: url('images/orig-scaled/128x128/mine1.png');
 }
+.image-mine.winter {
+	background-image: url('images/orig-scaled/128x128/winter/mine.png');
+}
+
 .image-landmine {
 	background-image: url('images/orig-scaled/128x128/landmine1.png');
 }
+.image-landmine.winter {
+	background-image: url('images/orig-scaled/128x128/winter/landmine.png');
+}
+
 .image-soldier {
 	background-image: url('images/orig-scaled/128x128/soldier1.png');
 }
@@ -1293,6 +1313,14 @@ input.disabled {
 .image-boat {
 	background-image: url('images/orig-scaled/128x128/sailboat.png');
 }
+
+.image-dead {
+	background-image: url('images/orig-scaled/128x128/dead.png');
+}
+.image-dead.winter {
+	background-image: url('images/orig-scaled/128x128/winter/dead.png');
+}
+
 
 
 
@@ -1706,15 +1734,22 @@ input.disabled {
 			
 			
 			<div>
-				<div class="settings-title">
-					Start money per hex:
-				</div>
+
 				<div class="input-group">
 					<div style="flex: 1;">
+						<div class="settings-title">
+							Start money per hex:
+						</div>
 						<input type="number" id="start-money-per-hex" step="any" disabled>
 					</div>
 					<div style="flex: 1;">
-						
+						<div class="settings-title">
+							Theme:
+						</div>
+						<select id="map-theme" disabled>
+							<option value="0">Summer</option>
+							<option value="1">Winter</option>
+						</select>
 					</div>
 				</div>
 			</div>
@@ -3918,6 +3953,7 @@ let gameState = {
 		minePercent: 0.05,
 		gameEndRule: ENDRULE_NO_SOLDIERS_NO_MONEY,
 		startMoneyPerHex: 0,
+		mapTheme: 0, // 0 = summer, 1 = winter
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -4017,6 +4053,31 @@ startMoneyPerHexInput.addEventListener('change', e => {
 	gameState.settings.startMoneyPerHex = Number(e.target.value);
 	broadcastLobbyState();
 });
+
+
+
+
+let mapThemeList = document.getElementById('map-theme');
+mapThemeList.value = gameState.settings.mapTheme;
+
+
+function updateSettingsImages(){
+	document.querySelectorAll('.settings-image').forEach(el => {
+		if(gameState.settings.mapTheme === 1){
+			el.classList.add('winter');
+		}else{
+			el.classList.remove('winter');
+		}
+	});
+}
+mapThemeList.addEventListener('change', e => {
+	gameState.settings.mapTheme = Number(e.target.value);
+	
+	updateSettingsImages();
+
+	broadcastLobbyState();
+});
+
 
 
 let gameEndRuleList = document.getElementById('game-end-rule');
@@ -4232,6 +4293,7 @@ imageAssets = {
 	// NOTE: must update landTextures array if new textures added.
 	
 	'dirt':     {path:'images/dirt2.jpg', scale:1, offsetX: 0},
+	'snow':     {path:'images/snow.jpg', scale:1, offsetX: 0},
 	'cliff':    {path:'images/cliff2.jpg', scale:1, offsetX: 0},
 	'water':    {path:'images/water.jpg', scale:1, offsetX: 0},
 	
@@ -4240,6 +4302,18 @@ imageAssets = {
 	'tree':     {path:'images/orig-scaled/128x128/tree.png', scale:2, offsetX: -2, offsetY: -2},
 	'rock2':    {path:'images/orig-scaled/128x128/rock2c.png', scale:1.8, offsetX: 0, offsetY: -3},
 	'mine1':    {path:'images/orig-scaled/128x128/mine1.png', scale:1.8, offsetX: 0, offsetY: -10},
+	
+	'dead-winter':     {path:'images/orig-scaled/128x128/dead.png', scale:2, offsetX: 0},
+	'grass-winter':    {path:'images/orig-scaled/128x128/winter/grass.png', scale:2, offsetX: -2, offsetY: -2},
+	'tree-winter':     {path:'images/orig-scaled/128x128/winter/tree.png', scale:2, offsetX: -2, offsetY: -2},
+	'rock-winter':     {path:'images/orig-scaled/128x128/winter/rock.png', scale:1.8, offsetX: 0, offsetY: -3},
+	'mine-winter':     {path:'images/orig-scaled/128x128/winter/mine.png', scale:1.8, offsetX: 0, offsetY: -10},
+	'landmine-winter': {path:'images/'+pathPrefix+'/winter/landmine.png', scale:1.8, offsetX: 0, offsetY: -10},
+	
+	'castle1-winter':  {path:'images/'+pathPrefix+'/winter/castle1.png', scale: unitScales[0], offsetX: unitOffsets[0].x, offsetY: unitOffsets[0].y},
+	'castle2-winter':  {path:'images/'+pathPrefix+'/winter/castle2.png', scale: unitScales[1], offsetX: unitOffsets[1].x, offsetY: unitOffsets[1].y},
+	'castle3-winter':  {path:'images/'+pathPrefix+'/winter/castle3.png', scale: unitScales[2], offsetX: unitOffsets[2].x, offsetY: unitOffsets[2].y},
+	
 	
 	'protect':  {path:'images/orig-scaled/128x128/protect.png', scale:1.6, offsetX: 0},
 	'select':   {path:'images/orig-scaled/128x128/select.png', scale:1, offsetX: 0},
@@ -6308,19 +6382,27 @@ function getEdgeCorners(px, py, ival, scale = 1){
 }
 
 
+
+
+function isSummer(){
+	return gameState.settings.mapTheme === 0;
+}
+
+function getDirtTileName(){
+	return isSummer() ? 'dirt' : 'snow';
+}
+
+
 function drawLandShading(px, py, drawLines, color = "rgba(0,0,0, 0.2)"){
 	if(drawLines.length > 0){
-		
-		let step = 0.12;
-		
 		for (let i = 0; i < drawLines.length; i++) {
 			let ival = drawLines[i];
 
 			let edge1 = getEdgeCorners(px, py, ival, 1); // outside edge
-			let edge2 = getEdgeCorners(px, py, ival, 1-step); // inside edge
-			let edge3 = getEdgeCorners(px, py, ival, 1-step*2); // most inside edge
+			let edge2 = getEdgeCorners(px, py, ival, 0.9); // inside edge
+			let edge3 = getEdgeCorners(px, py, ival, 0.6); // most inside edge
 
-			ctx.fillStyle = "rgba(0,0,0, 0.2)";
+			ctx.fillStyle = "rgba(0,0,0, 0.3)";
 			ctx.beginPath();
 			ctx.moveTo(edge1.x1, edge1.y1);
 			ctx.lineTo(edge1.x2, edge1.y2);
@@ -7054,7 +7136,7 @@ function drawDirtTile(x, y){
 	// for dirt hex.
 	drawHexagonPath(x, y);
 	
-	let imageName = 'dirt';
+	let imageName = getDirtTileName();
 	let img = getImage(imageName);
 
 	// 4. If image is loaded, draw it clipped and scaled
@@ -7121,7 +7203,7 @@ function drawMapTiles(){
 		//scaleMatrix.translateSelf(viewport.x, viewport.y);
 		scaleMatrix.scaleSelf(1/getTexMipScale());
 
-		transformPattern('dirt');
+		transformPattern(getDirtTileName());
 	}
 	
 	
@@ -7284,7 +7366,7 @@ function drawMapTiles(){
 					img = getImage(imageName);
 				}else{
 					if(getTileType(tile) === 'land'){
-						imageName = 'dirt';
+						imageName = getDirtTileName();
 					}else{
 						imageName = tile.type;
 					}
@@ -7294,7 +7376,7 @@ function drawMapTiles(){
 				}
 			}
 			if(previewdraw){
-				imageName = 'dirt';
+				imageName = getDirtTileName();
 				img = getImage(imageName);
 			}
 			
@@ -7592,7 +7674,17 @@ function drawObjects(){
 		}
 		
 		if (tile.object) {
-			drawObject(ctx, x, y, tile.object, tile);
+			let object = tile.object;
+			if(!isSummer()){
+				if(object === 'grass'){
+					object = 'grass-winter';
+				}else if(object === 'rock2'){
+					object = 'rock-winter';
+				}else if(object === 'tree'){
+					object = 'tree-winter';
+				}
+			}
+			drawObject(ctx, x, y, object, tile);
 			OBJECTS_DRAWN++;
 		}
 		
@@ -14488,8 +14580,9 @@ function handleHostData(data) {
 			rockPercentText.value = percent2Decimals(gameState.settings.rockPercent)+"%";
 			minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
 			
-			
 			gameEndRuleList.value = gameState.settings.gameEndRule;
+			mapThemeList.value = gameState.settings.mapTheme;
+			
 			startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
 			
 			updateLobbyUI();
@@ -15469,6 +15562,7 @@ function hostGame() {
 			
 			startMoneyPerHexInput.disabled = false;
 			gameEndRuleList.disabled = false;
+			mapThemeList.disabled = false;
 	
 			
 			// Reset player list and add host
