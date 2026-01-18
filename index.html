@@ -9541,24 +9541,27 @@ function handleHexClick(hex) {
 					
 					
 					if(moveCheck.valid){
-						let unloadingToTile = null;
+						// unload_unit
+						let unloadingToTile = moveCheck.action !== 'move';
 						
+						/*
 						if(selectedUnit.loadedUnit){
 							let landingTile = getTileAt(hex.q, hex.r);
-							// landing validation is checked in isMoveValid()
+							// landing validation is checked in  isMoveValid()
 							// just check if we moved on land instead of water to know if unloading started.
 							// allowed to land on "land" (not on "cliff").
 							if(getTileType(landingTile) === 'land'){
 								unloadingToTile = landingTile;
 							}
 						}
+						*/
 						
 						if(unloadingToTile){
 							sendToHost({
 								type: ACTION.action_unload_unit,
 								unitId: selectedUnit.id,
-								toQ: unloadingToTile.q,
-								toR: unloadingToTile.r,
+								toQ: hex.q,
+								toR: hex.r,
 							});
 						}else{
 							sendToHost({
@@ -10046,14 +10049,19 @@ function getReachableHexes(startHex, maxRange = 5) {
 			// Cannot enter more than one land hex
 			if (usedLand && isLand) continue;
 
+			/*
+			// units/objects blocking is checked in isMoveValid()
+			// todo: could add same checks here too though. later.
+			
 			// Units always block
 			const unitBlocking = gameState.units.some(
 				u => u.q === n.q && u.r === n.r
 			);
 			if (unitBlocking) continue;
 		
-		// rock objects always block
-		if(tile && tile.object === 'rock2') continue;
+			// rock objects always block
+			if(tile && tile.object === 'rock2') continue;
+			*/
 
 			const key = `${n.q},${n.r},${nextUsedLand}`;
 			if (visited.has(key)) continue;
@@ -10568,8 +10576,9 @@ function isMoveValid(unit, toHex, player) {
 		//
 		let loadedUnit = unit.loadedUnit;
 		
+		let toTile = getTileAt(toHex.q, toHex.r);
+		
 		if(loadedUnit){
-			let toTile = getTileAt(toHex.q, toHex.r);
 			
 			if(getTileType(toTile) === 'land'){
 				//if (toTile.object && toTile.object === 'rock2'){
@@ -10587,7 +10596,7 @@ function isMoveValid(unit, toHex, player) {
 						return badMove('Cannot move onto own unit.'); // Should be caught by pool check, but safe
 					}
 					if (loadedUnit.level > shieldLevel && loadedUnit.level > targetUnit.level) {
-						return goodMove('unload_boat_attack', targetUnit);
+						return goodMove('unload_unit_attack', targetUnit);
 					} else {
 						return badMove('low_level');
 					}
@@ -10595,31 +10604,52 @@ function isMoveValid(unit, toHex, player) {
 				// No target unit
 				if (toTile.ownerIndex !== -1) { // It's enemy land
 					if (loadedUnit.level > shieldLevel) {
-						return goodMove('unload_boat');
+						return goodMove('unload_unit');
 					} else {
 						// todo: think again....
 						if(toTile.ownerIndex !== loadedUnit.ownerIndex){
 							return badMove('low_level');
 						}else{
-							return goodMove('unload_boat');
+							return goodMove('unload_unit');
 						}
 					}
 				} else { // It's unowned land
 					// New rule: Shields do not block movement to unowned land
-					return goodMove('unload_boat');
+					return goodMove('unload_unit');
 				}
 				
-				return goodMove('unload_boat');
+				return goodMove('unload_unit');
+			}else{
+				// WATER TILE:
+				
+				// dont allow moving onto other boats:
+				// todo: probably not needed here anymore since units are checked earlier.
+				if(targetUnit){
+					return badMove('not_empty');
+				}
+				// just move the boat:
+				return goodMove('move');
+			}
+		}else{
+			// NO LOADED UNIT:
+			
+			// dont allow moving onto other boats:
+			// todo: probably not needed here anymore since units are checked earlier.
+			if(targetUnit){
+				return badMove('not_empty');
+			}
+			if(getTileType(toTile) === 'land'){
+				return badMove('cannot move on land without loaded unit');
+			}else{
+				// WATER TILE:
+				
+				// just move the boat:
+				return goodMove('move');
 			}
 		}
 		
-		// dont allow moving onto other boats:
-		// todo: probably not needed here anymore since units are checked earlier.
-		if(targetUnit){
-			return badMove('not_empty');
-		}
-		
-		
+		// todo: probably remove this or make logic structure better.
+		// just move the boat:
 		return goodMove('move');
 	}
 	
@@ -10784,7 +10814,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	//placementframe++;
 	//console.log("placementframe: "+placementframe);
 
-	//return isMoveValid(unit, hex, player);
+	//return  isMoveValid(unit, hex, player);
 	
 	//console.warn("isPlacementValid: selectedPool");
 	//console.warn(selectedPool);
@@ -11305,28 +11335,33 @@ function executeAction(playerId, action) {
 			
 			if(getTileType(tile) === 'land'){
 				
+				let poolHex = {q: tile.q, r: tile.r};
+				
 				// double check move validity:
 				const moveCheck = isMoveValid(unit, { q: toQ, r: toR }, player);
+				console.warn("unload_unit moveCheck");
+				console.warn(moveCheck);
 				
 				if(moveCheck.valid){
 					// todo: test these later:
-					// moveCheck.action === 'unload_boat_attack'
-					// moveCheck.action === 'unload_boat'
+					// moveCheck.action === 'unload_unit_attack'
+					// moveCheck.action === 'unload_unit'
 			
 					const oldOwnerIndex = tile.ownerIndex;
 					const oldObject = tile.object;
 					const oldSavings = tile.savings;
 					
+					let tileChangedUpdates = [];
+					
 					actionForUndo = {
 						type: 'unload_unit', 
 						unit: unit, // the unit that unloads an unit.
 						loadedUnit: loadedUnit, // the unit to be unloaded.
-						
 						didClaim: tile.ownerIndex !== playerIndex,
 						oldSavings: oldSavings,
 						oldOwnerIndex: oldOwnerIndex,
 						clearedObject: oldObject,
-						//poolHex: poolHex,
+						poolHex: poolHex,
 						
 						actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
 					};
@@ -11337,24 +11372,35 @@ function executeAction(playerId, action) {
 					newUnit.r = toR;
 					newUnit.hasMoved = true;
 					
-					updates.push({ type: ACTION.unit_added, unit: newUnit });
+					let unitCopy = {...newUnit}; // used for mines killing.
 					
-					// send unload message to delete the load and set hasMoved to true:
-					updates.push({ type: ACTION.unit_unloaded, unitId: unitId });
-					//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
-					
+
 					
 					let playMoveUnit = true;
+					let didClaimEnemy = false;
+					let killAddedUnit = false;
 					
+					// if claimed a tile:
+					if (tile.ownerIndex !== playerIndex) {
+						if(tile.ownerIndex !== -1){
+							didClaimEnemy = true;
+						}
+						setTileOwnerByIndex(tile, playerIndex);
+						tile.savings = 0; // update to host data.
+						
+						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
+					}
+					
+
 					// check if the unloaded unit killed some other unit:
-					if (moveCheck.action === 'unload_boat_attack') {
+					if (moveCheck.action === 'unload_unit_attack') {
 						const targetUnit = moveCheck.target;
 						actionForUndo.killedUnit = { ...targetUnit }; // Store copy
 						//gameState.units = gameState.units.filter(u => u.id !== targetUnit.id);
 						updates.push({ type: ACTION.unit_removed, unitId: targetUnit.id });
 						
 						if(!isAiPlayer(playerIndex)){
-							if(targetUnit.internalType === 'castle'){ // CASTLE_DATA[targetUnit.type]
+							if(targetUnit.internalType === 'castle'){
 								sounds.push({name:'killCastle', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
 							}else{
 								sounds.push({name:'kill', q: targetUnit.q, r: targetUnit.r, action: action.type, level:targetUnit.level});
@@ -11363,9 +11409,98 @@ function executeAction(playerId, action) {
 						}
 					}
 					
+					// if claimed object:
+					if (tile.object) {
+						
+						
+					/*
+						if(tile.object === 'tree'){
+							sounds.push({name:'claimTree', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'grass'){
+							sounds.push({name:'claimGrass', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'rock2'){
+							sounds.push({name:'claimRock', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'mine1'){
+							sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+						}else{
+							playMoveUnit = true;
+						}
+						*/
+
+						if(tile.object === 'tree'){
+							sounds.push({name:'claimTree', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'grass'){
+							sounds.push({name:'claimGrass', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'rock2'){
+							sounds.push({name:'claimRock', q: toQ, r: toR, action: action.type});
+						}else if(tile.object === 'mine1'){
+							sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+							killAddedUnit = true;
+						}else if(tile.object === 'landmine'){
+							// only explode if its not your mine:
+							if(!isTileMinePlayerMine(tile, playerIndex)){
+								sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
+								killAddedUnit = true;
+							}else{
+								// if not killed unit, just play move sound? not sure about this logic.
+								if(!actionForUndo.killedUnit){
+									sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+								}
+							}
+						}else{
+							if(!actionForUndo.killedUnit){
+								sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
+							}
+						}
+				
+						// add tree claiming money:
+						let moneyAdded = 0;
+						if(tile.object === 'tree'){
+							moneyAdded = 1;
+						}else if(tile.object === 'rock2'){
+							moneyAdded = 5;
+						}
+						
+						// handle mines:
+						if(tile.object === 'mine1'){
+							killAddedUnit = true;
+						}
+						if(moneyAdded){
+							// todo: find player pools first.
+							let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
+							addCost(actionPool, moneyAdded, poolHex, action.type);
+						}
+						
+						actionForUndo.clearedObject = tile.object;
+						tile.object = null;
+
+						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: null, FText: moneyAdded });
+					}
+					
+					
+					
+					//let addedUnitWasKilled = false;
+					//actionForUndo.addedUnitWasKilled = addedUnitWasKilled;
+					
+					updates.push({ type: ACTION.unit_added, unit: newUnit });
+					
+					// send unload message to delete the load and set hasMoved to true:
+					updates.push({ type: ACTION.unit_unloaded, unitId: unitId });
+					//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
+					
+					
+					if(killAddedUnit){
+						// dont add killed unit or it will create that unit after undo...
+						updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+					}
+					
+	
 					if(playMoveUnit){
 						sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
 					}
+					
+					// push to updates all tile_changed updates that were merged into one:
+					pushMergedUpdates(updates, tileChangedUpdates);
 				}
 			}
 			
