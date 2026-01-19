@@ -3931,6 +3931,15 @@ function unitTypeCanMove(type){
 	return getUnitInfo(type).canMove;
 }
 
+function unitCanBeSelected(unit){
+	if(unitTypeCanMove(unit.type)){
+		if(!unit.hasMoved){
+			return true;
+		}
+	}
+	return false;
+}
+
 function getUnitLevel(type){
 	return getUnitInfo(type).level;
 	//return CASTLE_DATA[type].level;
@@ -7301,6 +7310,8 @@ function getAppearingPercent(tile, percentMultiplier = 1){
 let tileZoomMipLevel = 1; // updated at drawMapTiles()
 
 
+
+
 // rendertiles drawtiles rendermaptiles render tiles render map tiles
 function drawMapTiles(){
 	
@@ -7542,6 +7553,8 @@ function drawMapTiles(){
 						drawImageMipped(ctx, textureName, dx, dy, dWidth, dHeight, tileZoomMipLevel);
 
 						let color = player.color;
+						
+						
 						
 						if(!tile.isProtected){
 							// showing unprotected lands might make game boring, also confusing when it shows different color.
@@ -10045,13 +10058,26 @@ function handleHexClick(hex) {
 					}else{
 						console.warn("isMoveValid = false");
 						
-						playSound('protect');
-						// set selected hex to the selected unit position:
-						// caused some crash on addCost() if moved to rock first and then to tree,
-						// probably remembered the selectedHex as the rock hex, so it failed...
-						selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
-						updatePools = false; // ensure it wont update pools with the hex we try to move onto.
-						sellUnitBtn.disabled = false;
+						let unitOnHex = getUnitAt(hex);
+						
+						if(unitOnHex){
+							if(unitCanBeSelected(unitOnHex)){
+								selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
+								selectedUnit = unitOnHex;
+								updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+								sellUnitBtn.disabled = isTypeBoat(selectedUnit.type);
+								playSound('startmove');
+							}
+						}else{
+						
+							playSound('protect');
+							// set selected hex to the selected unit position:
+							// caused some crash on addCost() if moved to rock first and then to tree,
+							// probably remembered the selectedHex as the rock hex, so it failed...
+							selectedHex = {q:selectedUnit.q, r:selectedUnit.r};
+							updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+							sellUnitBtn.disabled = false;
+						}
 					}
 	
 				}else{
@@ -10063,16 +10089,26 @@ function handleHexClick(hex) {
 					
 					// check if trying to load selectedUnit into a boat unit:
 					let unitOnHex = getUnitAt(hex);
+					
+					let selectBoat = false;
 	
 					if(unitOnHex){
 						console.warn("unitOnHex");
 						console.warn(unitOnHex);
 						
 						if(isTypeBoat(unitOnHex.type)){
-							// allow loading only if unit stands next to the boat:
-							if(isUnitNextToUnit(selectedUnit, unitOnHex)){
-								console.warn("loading unit into boat");
-								loadedIntoUnit = unitOnHex;
+							// dont load unit if there already is unit:
+							if(!unitOnHex.loadedUnit){
+								// allow loading only if unit stands next to the boat:
+								if(isUnitNextToUnit(selectedUnit, unitOnHex)){
+									console.warn("loading unit into boat");
+									loadedIntoUnit = unitOnHex;
+								}
+							}else{
+								if(unitCanBeSelected(unitOnHex)){
+									selectBoat = true;
+								}
+
 							}
 						}
 					}
@@ -10085,6 +10121,11 @@ function handleHexClick(hex) {
 							poolHex: poolHex,
 						});
 						deselectUnit();
+					}else if(selectBoat){
+						selectedUnit = unitOnHex;
+						updatePools = false; // ensure it wont update pools with the hex we try to move onto.
+						sellUnitBtn.disabled = true; // boats cant be sold.
+						playSound('startmove');
 					}else{
 					
 						// Check if clicking a valid move hex
@@ -10147,9 +10188,9 @@ function handleHexClick(hex) {
 								const unitOnHex = getUnitAt(hex.q, hex.r);
 								if(unitOnHex){
 									if (unitOnHex.ownerIndex === localPlayer.playerIndex) {
-										
-										if(unitTypeCanMove(unitOnHex.type) && !unitOnHex.hasMoved){
+										//if(unitTypeCanMove(unitOnHex.type) && !unitOnHex.hasMoved){
 										//if(unitOnHex.internalType === 'soldier' && !unitOnHex.hasMoved){
+										if(unitCanBeSelected(unitOnHex)){
 											selectedUnit = unitOnHex; // Select new unit
 											sellUnitBtn.disabled = false;
 											selectedHex = hex;
@@ -10196,7 +10237,7 @@ function handleHexClick(hex) {
 						if(!unitOnHex.hasMoved){
 							//console.log("selected new unit");
 							selectedUnit = unitOnHex;
-							sellUnitBtn.disabled = false;
+							sellUnitBtn.disabled = isTypeBoat(selectedUnit.type);
 							selectedHex = hex;
 							
 							console.warn("selectedUnit");
@@ -11998,19 +12039,21 @@ function executeAction(playerId, action) {
 			let unit = getUnitById(unitId);
 			let targetUnit = getUnitById(targetUnitId);
 			
-			actionForUndo = {
-				type: 'load_unit', 
-				poolHex: poolHex,
-				unit: unit, // the unit to be loaded into boat.
-				targetUnit: targetUnit, // the boat being loaded.
-				actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
-			};
-			
-			updates.push({ type: ACTION.unit_loaded, unitId: unitId, targetUnitId: targetUnitId});
-			
-			updates.push({ type: ACTION.unit_removed, unitId: unitId });
-			//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
-			
+			if(!targetUnit.loadedUnit){
+				
+				actionForUndo = {
+					type: 'load_unit', 
+					poolHex: poolHex,
+					unit: unit, // the unit to be loaded into boat.
+					targetUnit: targetUnit, // the boat being loaded.
+					actionPlayerIndex: playerIndex, // who did this action, used for starvation undoing only.
+				};
+				
+				updates.push({ type: ACTION.unit_loaded, unitId: unitId, targetUnitId: targetUnitId});
+				
+				updates.push({ type: ACTION.unit_removed, unitId: unitId });
+				//updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: targetUnitId});
+			}
 			
 		}
 		break;
@@ -18184,6 +18227,8 @@ function startGame() {
 	}
 	UNIT_ID_COUNTER = maxid+1;
 	
+
+
 	
 	
 	// Broadcast start
