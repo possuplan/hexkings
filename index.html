@@ -1088,7 +1088,7 @@ button.redbutton:hover {
 	width: 100%;
 }
 .music-volume-wrapper {
-	padding:5px 12px 5px 0px;
+	padding:0;
 }
 
 #close-settings-btn {
@@ -1267,6 +1267,9 @@ input.disabled {
 	padding-left: 7px !important;
 }
 
+.settings-musicplayer-elem {
+	flex: 0 0 54px; /* fixed width, other elems will take all space */
+}
 
 
 .image-tree {
@@ -1387,11 +1390,9 @@ input.disabled {
 }
 .music-unmute-btn {
 	background-image: url('images/ui/music-mute.png');
-	margin:0;
 }
 .music-mute-btn {
 	background-image: url('images/ui/music-unmute.png');
-	margin:0;
 }
 
 #rotate-left-btn {
@@ -1640,42 +1641,70 @@ input.disabled {
 	<div id="settings-ui-wrapper">
 		<div id="settings-ui-wrapper2" class="ui-menu ui-panel settings-panel">
 			<div class="input-group">
-				<div style="flex: 5; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
+				<div style="flex: 4; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
 					Settings
+				</div>
+				<div style="flex: 2;">
+					<button id="quit-game-btn2" class="gamebutton redbutton">Quit game</button>
 				</div>
 				<div style="flex: 1;">
 					<button id="close-settings-btn" class="gamebutton largefont">×</button>
 				</div>
 			</div>
-			<div class="input-group">
-				<div style="flex: 1;">
-					<button id="quit-game-btn2" class="gamebutton redbutton" style="width:31%">Quit game</button>
-				</div>
-			</div>
+			
 			Music:
-			<div class="input-group">
-				<div style="flex: 1;">
-					<button id="music-previous-btn" class="music-previous-btn gamebutton"></button>
-				</div>
-				<div style="flex: 1;">
-					<button id="music-pause-btn" class="music-pause-btn gamebutton"></button>
-					<button id="music-play-btn" class="music-play-btn gamebutton" style="display:none"></button>
-				</div>
-				<div style="flex: 1;">
-					<button id="music-next-btn" class="music-next-btn gamebutton"></button>
-				</div>
-			</div>
 			<div class="music-volume-wrapper">
-				<div class="input-group" style="align-items: center;">
-					<div style="flex: 1;">
+				<div class="input-group-nogap" style="align-items: center; gap:5px">
+					<div class="settings-musicplayer-elem">
+						<button id="music-pause-btn" class="music-pause-btn gamebutton"></button>
+						<button id="music-play-btn" class="music-play-btn gamebutton" style="display:none"></button>
+					</div>
+					<div class="settings-musicplayer-elem">
 						<button id="music-mute-btn" class="music-mute-btn gamebutton" title="Mute"></button>
 						<button id="music-unmute-btn" class="music-unmute-btn gamebutton" title="Unmute" style="display:none"></button>
 					</div>
-					<div style="flex: 4;">
+					<div class="settings-musicplayer-elem">
+						<button id="music-previous-btn" class="music-previous-btn gamebutton"></button>
+					</div>
+					<div style="flex: 1;">
 						<input type="range" id="music-volume" min="0" max="200" value="1">
+					</div>
+					<div class="settings-musicplayer-elem">
+						<button id="music-next-btn" class="music-next-btn gamebutton"></button>
 					</div>
 				</div>
 			</div>
+	
+			
+			<div class="input-group">
+				<div style="flex: 1;">
+					<div class="settings-title">
+						Theme:
+					</div>
+					<select id="map-theme-override">
+						<option value="0">Default</option>
+						<option value="1">Summer</option>
+						<option value="2">Winter</option>
+					</select>
+				</div>
+				<div style="flex: 1;">
+					
+				</div>
+			</div>
+			<br>
+			<div>
+				<div class="settings-title">
+					Game end rule:
+				</div>
+				<div class="input-group">
+					<select id="game-end-rule-ingame" disabled>
+						<option value="0">Lose all warriors & Cannot buy anything</option>
+						<option value="1">Lose all warriors</option>
+					</select>
+				</div>
+			</div>
+			
+
 			
 		</div>
 	</div>
@@ -1705,36 +1734,35 @@ input.disabled {
 				<div class="settings-title">
 					Music player:
 				</div>
-				<div class="input-group">
-					<div style="flex: 1;">
-						<button id="music-previous-btn2" class="music-previous-btn gamebutton"></button>
-					</div>
-					<div style="flex: 1;">
-						<button id="music-pause-btn2" class="music-pause-btn gamebutton" style="display:none"></button>
-						<button id="music-play-btn2" class="music-play-btn gamebutton"></button>
-					</div>
-					<div style="flex: 1;">
-						<button id="music-next-btn2" class="music-next-btn gamebutton"></button>
-					</div>
-				</div>
+				
+				
+			
 				<div class="music-volume-wrapper">
-					<div class="input-group" style="align-items: center;">
-						<div style="flex: 1;">
+					<div class="input-group-nogap" style="align-items: center; gap:5px">
+						<div class="settings-musicplayer-elem">
+							<button id="music-pause-btn2" class="music-pause-btn gamebutton" style="display:none"></button>
+							<button id="music-play-btn2" class="music-play-btn gamebutton"></button>
+						</div>
+						<div class="settings-musicplayer-elem">
 							<button id="music-mute-btn2" class="music-mute-btn gamebutton" title="Mute"></button>
 							<button id="music-unmute-btn2" class="music-unmute-btn gamebutton" title="Unmute" style="display:none"></button>
 						</div>
-						<div style="flex: 4;">
+						<div class="settings-musicplayer-elem">
+							<button id="music-previous-btn2" class="music-previous-btn gamebutton"></button>
+						</div>
+						<div style="flex: 1;">
 							<input type="range" id="music-volume2" min="0" max="200" value="1">
+						</div>
+						<div class="settings-musicplayer-elem">
+							<button id="music-next-btn2" class="music-next-btn gamebutton"></button>
 						</div>
 					</div>
 				</div>
 				<br>
+				
 			</div>
 			
-			
-			
 			<div>
-
 				<div class="input-group">
 					<div style="flex: 1;">
 						<div class="settings-title">
@@ -1747,8 +1775,8 @@ input.disabled {
 							Theme:
 						</div>
 						<select id="map-theme" disabled>
-							<option value="0">Summer</option>
-							<option value="1">Winter</option>
+							<option value="1">Summer</option>
+							<option value="2">Winter</option>
 						</select>
 					</div>
 				</div>
@@ -3953,7 +3981,8 @@ let gameState = {
 		minePercent: 0.05,
 		gameEndRule: ENDRULE_NO_SOLDIERS_NO_MONEY,
 		startMoneyPerHex: 0,
-		mapTheme: 0, // 0 = summer, 1 = winter
+		mapTheme: 1, // 1 = summer, 2 = winter
+		mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -4055,18 +4084,32 @@ startMoneyPerHexInput.addEventListener('change', e => {
 });
 
 
+/////////////
+// unsynced setting for map theme change for localplayer
+//
+let mapThemeOverrideList = document.getElementById('map-theme-override');
+mapThemeOverrideList.value = gameState.settings.mapThemeOverride;
+
+mapThemeOverrideList.addEventListener('change', e => {
+	gameState.settings.mapThemeOverride = Number(e.target.value);
+	
+	updateSettingsImages();
+});
 
 
+/////////////
+// synced setting for map theme for start of game:
+//
 let mapThemeList = document.getElementById('map-theme');
 mapThemeList.value = gameState.settings.mapTheme;
 
 
 function updateSettingsImages(){
 	document.querySelectorAll('.settings-image').forEach(el => {
-		if(gameState.settings.mapTheme === 1){
-			el.classList.add('winter');
-		}else{
+		if(isSummer()){
 			el.classList.remove('winter');
+		}else{
+			el.classList.add('winter');
 		}
 	});
 }
@@ -4079,12 +4122,16 @@ mapThemeList.addEventListener('change', e => {
 });
 
 
+let gameEndRuleIngameList = document.getElementById('game-end-rule-ingame');
+gameEndRuleIngameList.value = gameState.settings.gameEndRule;
+
 
 let gameEndRuleList = document.getElementById('game-end-rule');
 gameEndRuleList.value = gameState.settings.gameEndRule;
 	
 gameEndRuleList.addEventListener('change', e => {
 	gameState.settings.gameEndRule = Number(e.target.value);
+
 	broadcastLobbyState();
 });
 
@@ -4302,6 +4349,7 @@ imageAssets = {
 	'tree':     {path:'images/orig-scaled/128x128/tree.png', scale:2, offsetX: -2, offsetY: -2},
 	'rock2':    {path:'images/orig-scaled/128x128/rock2c.png', scale:1.8, offsetX: 0, offsetY: -3},
 	'mine1':    {path:'images/orig-scaled/128x128/mine1.png', scale:1.8, offsetX: 0, offsetY: -10},
+	
 	
 	'dead-winter':     {path:'images/orig-scaled/128x128/dead.png', scale:2, offsetX: 0},
 	'grass-winter':    {path:'images/orig-scaled/128x128/winter/grass.png', scale:2, offsetX: -2, offsetY: -2},
@@ -6385,7 +6433,10 @@ function getEdgeCorners(px, py, ival, scale = 1){
 
 
 function isSummer(){
-	return gameState.settings.mapTheme === 0;
+	if(gameState.settings.mapThemeOverride){
+		return gameState.settings.mapThemeOverride === 1;
+	}
+	return gameState.settings.mapTheme === 1; // gameState.settings.mapTheme === 'summer'
 }
 
 function getDirtTileName(){
@@ -7682,6 +7733,10 @@ function drawObjects(){
 					object = 'rock-winter';
 				}else if(object === 'tree'){
 					object = 'tree-winter';
+				}else if(object === 'mine1'){
+					object = 'mine-winter';
+				}else if(object === 'landmine'){
+					object = 'landmine-winter';
 				}
 			}
 			drawObject(ctx, x, y, object, tile);
@@ -7734,8 +7789,14 @@ function drawUnitsByInternalType(unitType){
 			// causes image to be "soldier1-1.png" etc, the second frame for animation.
 			animSuffix = pulseScale(0,1, 0.002, unit.q*unit.r*useRandomPhase) < 0.5 ? "-1" : "";
 		}
+		let seasonKey = "";
+		if(!isSummer()){ 
+			if(data.type === 'castle'){
+				seasonKey = "-winter";
+			}
+		}
 		
-		let imageKey = `${data.defaultImage}${animSuffix}`;//`${data.type}${data.level}${animSuffix}`;
+		let imageKey = `${data.defaultImage}${seasonKey}${animSuffix}`;//`${data.type}${data.level}${animSuffix}`;
 		const img = getImage(imageKey);
 		
 
@@ -14581,7 +14642,10 @@ function handleHostData(data) {
 			minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
 			
 			gameEndRuleList.value = gameState.settings.gameEndRule;
+			gameEndRuleIngameList.value = gameEndRuleList.value; // copy to ingame settings list.
+			
 			mapThemeList.value = gameState.settings.mapTheme;
+			updateSettingsImages();
 			
 			startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
 			
