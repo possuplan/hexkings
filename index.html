@@ -4073,6 +4073,19 @@ function getMyPlayer() {
 
 
 
+function isSummer(){
+	if(gameState.settings.mapThemeOverride){
+		return gameState.settings.mapThemeOverride === 1;
+	}
+	return gameState.settings.mapTheme === 1; // gameState.settings.mapTheme === 'summer'
+}
+
+function getDirtTileName(){
+	return isSummer() ? 'dirt' : 'snow';
+}
+
+
+
 
 
 let startMoneyPerHexInput = document.getElementById('start-money-per-hex');
@@ -6420,56 +6433,86 @@ function norm180(a) {
 	return ((a + Math.PI) % tau + tau) % tau - Math.PI;
 }
 
-function getEdgeCorners(px, py, ival, scale = 1){
+function getEdgeCorners(px, py, ival, scale = 1, offX = 0, offY = 0){
 	let radius = HEX_SIZE*scale;
 	const x1 = px + radius * HEX_CORNERS[ival].x;
 	const y1 = py + radius * HEX_CORNERS[ival].y;
 	const x2 = px + radius * HEX_CORNERS[ival+1].x;
 	const y2 = py + radius * HEX_CORNERS[ival+1].y;
-	return {x1, y1, x2, y2};
+	return {x1: x1+offX, y1: y1+offY, x2: x2+offX, y2: y2+offY};
 }
 
 
 
-
-function isSummer(){
-	if(gameState.settings.mapThemeOverride){
-		return gameState.settings.mapThemeOverride === 1;
-	}
-	return gameState.settings.mapTheme === 1; // gameState.settings.mapTheme === 'summer'
+function drawFilledShadingLine(px, py, ival, scale1, scale2, scale3, color1, color2, offX = 0, offY = 0){
+	let edge1 = getEdgeCorners(px, py, ival, scale1, offX, offY); // 1.0  utside edge
+	let edge2 = getEdgeCorners(px, py, ival, scale2, offX, offY); // 0.9  inside edge
+	let edge3 = getEdgeCorners(px, py, ival, scale3, offX, offY); // 0.6  most inside edge
+/*
+	let textX = (edge1.x1+edge1.x2)/2;
+	let textY = (edge1.y1+edge1.y2)/2;
+	ctx.save();
+	ctx.translate(textX, textY);
+	drawStrokedText(text);
+	ctx.restore();
+	*/
+	
+	ctx.fillStyle = color1; // 0.3
+	ctx.beginPath();
+	ctx.moveTo(edge1.x1, edge1.y1);
+	ctx.lineTo(edge1.x2, edge1.y2);
+	ctx.lineTo(edge2.x2, edge2.y2);
+	ctx.lineTo(edge2.x1, edge2.y1);
+	ctx.closePath();
+	ctx.fill();
+	
+	ctx.fillStyle = color2; // 0.1
+	ctx.beginPath();
+	ctx.moveTo(edge2.x1, edge2.y1);
+	ctx.lineTo(edge2.x2, edge2.y2);
+	ctx.lineTo(edge3.x2, edge3.y2);
+	ctx.lineTo(edge3.x1, edge3.y1);
+	ctx.closePath();
+	ctx.fill();
 }
 
-function getDirtTileName(){
-	return isSummer() ? 'dirt' : 'snow';
-}
-
-
-function drawLandShading(px, py, drawLines, color = "rgba(0,0,0, 0.2)"){
+function drawLandShading(px, py, drawLines, scale1, scale2, scale3, color1, color2, offX = 0, offY = 0){
 	if(drawLines.length > 0){
 		for (let i = 0; i < drawLines.length; i++) {
 			let ival = drawLines[i];
+			// 1, 0.9, 0.6
+			drawFilledShadingLine(px, py, ival, scale1, scale2, scale3, color1, color2, offX, offY);
+		}
+	}
+}
 
-			let edge1 = getEdgeCorners(px, py, ival, 1); // outside edge
-			let edge2 = getEdgeCorners(px, py, ival, 0.9); // inside edge
-			let edge3 = getEdgeCorners(px, py, ival, 0.6); // most inside edge
 
-			ctx.fillStyle = "rgba(0,0,0, 0.3)";
-			ctx.beginPath();
-			ctx.moveTo(edge1.x1, edge1.y1);
-			ctx.lineTo(edge1.x2, edge1.y2);
-			ctx.lineTo(edge2.x2, edge2.y2);
-			ctx.lineTo(edge2.x1, edge2.y1);
-			ctx.closePath();
-			ctx.fill();
-			
-			ctx.fillStyle = "rgba(0,0,0, 0.1)";
-			ctx.beginPath();
-			ctx.moveTo(edge2.x1, edge2.y1);
-			ctx.lineTo(edge2.x2, edge2.y2);
-			ctx.lineTo(edge3.x2, edge3.y2);
-			ctx.lineTo(edge3.x1, edge3.y1);
-			ctx.closePath();
-			ctx.fill();
+function drawShoreShading(px, py, drawLines, scale1, scale2, scale3, color1, color2){
+	// Calculate the "Down" vector relative to current rotation.
+	// This ensures the shadow always falls towards the bottom of the monitor.
+	// 'waterShadingHeight' is your global depth constant.
+	const r = viewport.rotation;
+
+	// We want the vector (0, height) in Screen Space.
+	// To get that in our Rotated World Space, we rotate it by -r.
+	const offX = waterShadingHeight * Math.sin(r);
+	const offY = waterShadingHeight * Math.cos(r);
+
+	if(drawLines.length > 0){
+		for (let i = 0; i < drawLines.length; i++) {
+			let ival = drawLines[i];
+			let worldAngle = getSideAngle(ival) * Math.PI/180;
+			let cameraAngle = viewport.rotation;
+
+			// clockwise camera -> add
+			let screenAngle = norm180(worldAngle + cameraAngle);
+
+			let dy = Math.sin(screenAngle);
+			let hide_shading = dy > 0.8;
+
+			if (!hide_shading) {
+				drawFilledShadingLine(px, py, ival, scale1, scale2, scale3, color1, color2, offX, offY);
+			}
 		}
 	}
 }
@@ -6511,6 +6554,8 @@ function drawWaterShading(px, py, drawLines, color = "rgba(0,0,0, 0.6)"){
 				const y2 = py + HEX_SIZE * HEX_CORNERS[ival+1].y;
 
 				drawFilledLine(x1, y1, x2, y2, offX, offY);
+				
+				
 			}
 		}
 	}
@@ -7139,8 +7184,10 @@ let drawtextures = 1;
 
 
 
-
-function drawMapShading(landOnly = false){
+// type = 0 = (water 3d effect), 1 = water shores, 2 = tiles shading.
+function drawMapShading(type){
+	let pulse = pulseScale(0.8, 1, 0.002);
+	
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		const tile = gameState.map.tilesData[t];
 		const q = tile.q;
@@ -7163,16 +7210,22 @@ function drawMapShading(landOnly = false){
 				let player = getPlayerByIndex(tile.ownerIndex);
 				let color;
 				if(player){
-					color = hexToRgba(darkenHexColor(player.color, 0.8), 0.8);
+					//color = hexToRgba(darkenHexColor(player.color, 0.8), 0.8);
+					color = darkenHexColor(player.color, 0.8);
 				}else{
-					color = hexToRgba(darkenHexColor("#705F4B", 0.8), 0.8);
+					//color = hexToRgba(darkenHexColor("#705F4B", 0.8), 0.8);
+					color = "#16181C";
 				}
 				
-				if(!landOnly){
+				if(type === 0){ // water 3d
 					drawWaterShading(x, y, tile.outline, color);
-				}else{
-					drawLandShading(x, y, tile.outline);
+				}else if(type === 2){ // land shading
+					drawLandShading(x, y, tile.outline, 1, 0.9, 0.6, "rgba(0,0,0, 0.3)", "rgba(0,0,0, 0.1)");
 				}
+			}
+		}else{
+			if(type === 1){ // shore shading
+				drawShoreShading(x, y, tile.outline, 1, 0.9*pulse, 0.7*pulse*pulse, "rgba(200,200,255, 0.2)", "rgba(200,200,255, 0.1)");
 			}
 		}
 	}
@@ -8834,6 +8887,8 @@ function drawRouteLines(route, color = "#FFFFFF", dashed = false){
 }
 
 
+let drawAllTiles = true;
+
 
 function render() {
 	if (!gameState.settings.gameStarted) return;
@@ -8883,13 +8938,16 @@ function render() {
 	ctx.font = `11px sans-serif`;
 	
 	// MAP WATER SHADING (3d effect):
-	drawMapShading();
+	drawMapShading(1); // shores
+	drawMapShading(0); // water 3d effect
 	
 	// MAP TILE DRAWING:
-	drawMapTiles();
+	if(drawAllTiles){
+		drawMapTiles();
+	}
 	
 	// MAP LAND SHADING (3d effect):
-	drawMapShading(true);
+	drawMapShading(2); // land shading
 
 	// HIGHLIGHTS DRAWING:
 	if(!previewdraw){
@@ -16848,7 +16906,7 @@ function setTileNeighbours(tile, state = null){
 	for(let i = 0; i < neigh.length; i++){
 		let n = neigh[i];
 		const nTile = getTileAt(n.q, n.r, state);
-		if(nTile){
+		if(!isTileWater(nTile)){
 			//availableNeighbours.push({tileIndex: nTile.tileIndex, neighbourIndex: i, q: n.q, r: n.r});
 			availableNeighbours.push(nTile.tileIndex);
 		}else{
@@ -17189,16 +17247,64 @@ function updateTileAndNeighbourOutlines(q, r){
 		let n = neigh[i];
 		updateTileOutlines(n.q, n.r, false);
 		let tile2 = getTileAt(n.q, n.r);
-		if(tile2){
+		if(!isTileWater(tile2)){
 			// must update neighbours for neighbour tiles as well, or the pool highlighting wont work correctly.
 			setTileNeighbours(tile2);
 		}
 	}
-
+	updateShoreTiles(q, r);
 }
 
 
-function updateTileOutlines(q, r, allowCreation = true, state = null){
+function updateShoreTiles(q, r){
+	let tile = getTileAt(q,r);
+	if(isTileWater(tile)){
+		updateTileOutlines(q,r, true, null, "land");			
+	}
+	if(tile){
+		let neigh = getHexNeighbors(tile.q, tile.r);
+		for(let i = 0; i < neigh.length; i++){
+			let n = neigh[i];
+			const nTile = getTileAt(n.q, n.r);
+			if(isTileWater(nTile)){
+				updateTileOutlines(n.q, n.r, true, null, "land");			
+			}
+		}
+	}
+}
+
+
+// water edge tiles edge water tiles water edges water edge shading water edges shading
+// generatelandshading generateshoreshading generate land generate shore
+function generateWaterEdgeTiles(){
+	let edges = {};
+	// find water edges:
+	for(let t = 0; t < gameState.map.tilesData.length; t++){
+		let tile = gameState.map.tilesData[t];
+		
+		let neigh = getHexNeighbors(tile.q, tile.r);
+		for(let i = 0; i < neigh.length; i++){
+			let n = neigh[i];
+			const nTile = getTileAt(n.q, n.r);
+			if(isTileWater(nTile)){
+				edges[`${n.q},${n.r}`] = 1;				
+			}
+		}
+	}
+	// create water tiles for water edge shading:
+	for(const [key, value] of Object.entries(edges)){
+		let hex = key.split(',');
+		let q = Number(hex[0]);
+		let r = Number(hex[1]);
+		//let tile = {type: "water", ownerIndex: -1, object: null, savings: 0};
+		//setTileAt(q, r, tile);
+		updateTileOutlines(q, r, true, null, "land");
+	}
+	
+}
+
+
+function updateTileOutlines(q, r, allowCreation = true, state = null, typeToMatch = "water"){
 	//console.warn("updateTileOutlines"+q+","+r);
 	let lines = [];
 	let neigh = getHexNeighbors(q, r);
@@ -17206,11 +17312,11 @@ function updateTileOutlines(q, r, allowCreation = true, state = null){
 		let n = neigh[i];
 		const nTile = getTileAt(n.q, n.r, state);
 		let addline = 0;
-		if (getTileType(nTile) === 'water') {
+		if (getTileType(nTile) === typeToMatch) {
 			addline = 1;
 		}
 		// if out of bounds, add outlines also:
-		if (!nTile){
+		if (!nTile && typeToMatch === "water"){
 			addline = 1;
 		}
 		if(addline){
@@ -17245,7 +17351,8 @@ function generateMap(width, height) {
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
 		let tile = gameState.map.tilesData[t];
 		updateTileOutlines(tile.q, tile.r);
-	}  
+	}
+	generateWaterEdgeTiles();
 	
 }
 
