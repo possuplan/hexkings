@@ -9,8 +9,8 @@
 	<link rel="manifest" href="site.webmanifest">
 
 	<title>Hex Kings</title>
-	
-	<script async data-id="101499549" src="//static.getclicky.com/js"></script>
+
+	<script async data-id="101499913" src="//static.getclicky.com/js"></script>
 
 	<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
@@ -3558,6 +3558,8 @@ const ACTION = {
 	'unit_loaded': 120,			// ACTION.unit_loaded
 	'unit_unloaded': 121,		// ACTION.unit_unloaded
 	'unit_load_reset': 122,		// ACTION.unit_load_reset
+	'tile_edited': 123,			// ACTION.tile_edited
+	'settings_update': 124,		// ACTION.settings_update
 
 	// handleClientData: (host receives these)
 	'pong': 200, 				// ACTION.pong
@@ -3572,6 +3574,7 @@ const ACTION = {
 	'action_build_object': 209, // ACTION.action_build_object
 	'action_load_unit': 210,	// ACTION.action_load_unit
 	'action_unload_unit': 211,	// ACTION.action_unload_unit
+	'action_edit_tile': 212,	// ACTION.action_edit_tile
 	
 	// handleHostData & handleClientData:
 	'check_balance': 300, 		// ACTION.check_balance
@@ -3815,6 +3818,8 @@ const OTHER_UNITS_DATA = {
 	// unit.daysLeft = BOAT_MOVE_DAYS, explodes after 7 days.
 	"sailboat": { canMove: 1, frames: 1, visibleName: "Sailboat", name: "sailboat", type:"boat", defaultImage: "sailboat1", level: 1, cost: 1, wage: 0, sell: 0 },
 	
+	//"cannon": { canMove: 1, frames: 1, visibleName: "Cannon", name: "cannon", type:"cannon", defaultImage: "cannon", level: 1, cost: 1, wage: 0, sell: 0 },
+	
 	"landmine": { canMove: 0, frames: 1, visibleName: "Landmine", name: "landmine", type:"mine", isObject: true, isInvisible: true, defaultImage: "landmine", level: 0, cost: 1, wage: 0, sell: 0 },
 	
 	// experimental, could buy airships that are kinda like boats but can fly anywhere.
@@ -3982,6 +3987,9 @@ let gameState = {
 		gameEndRule: ENDRULE_NO_SOLDIERS_NO_MONEY,
 		startMoneyPerHex: 0,
 		mapTheme: 1, // 1 = summer, 2 = winter
+		editorEnabled: 0,
+	},
+	clientSettings: {
 		mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
@@ -4074,8 +4082,8 @@ function getMyPlayer() {
 
 
 function isSummer(){
-	if(gameState.settings.mapThemeOverride){
-		return gameState.settings.mapThemeOverride === 1;
+	if(gameState.clientSettings.mapThemeOverride){
+		return gameState.clientSettings.mapThemeOverride === 1;
 	}
 	return gameState.settings.mapTheme === 1; // gameState.settings.mapTheme === 'summer'
 }
@@ -4101,10 +4109,10 @@ startMoneyPerHexInput.addEventListener('change', e => {
 // unsynced setting for map theme change for localplayer
 //
 let mapThemeOverrideList = document.getElementById('map-theme-override');
-mapThemeOverrideList.value = gameState.settings.mapThemeOverride;
+mapThemeOverrideList.value = gameState.clientSettings.mapThemeOverride;
 
 mapThemeOverrideList.addEventListener('change', e => {
-	gameState.settings.mapThemeOverride = Number(e.target.value);
+	gameState.clientSettings.mapThemeOverride = Number(e.target.value);
 	
 	updateSettingsImages();
 });
@@ -4395,8 +4403,9 @@ imageAssets = {
 	'soldier3-1': {path:'images/'+pathPrefix+'/soldier3-1.png', scale: unitScales[5], offsetX: unitOffsets[5].x, offsetY: unitOffsets[5].y},
 	'soldier4-1': {path:'images/'+pathPrefix+'/soldier4-1.png', scale: unitScales[6], offsetX: unitOffsets[6].x, offsetY: unitOffsets[6].y},
 	
-	'sailboat1':   {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: 0, offsetY: -4},
+	'sailboat1':  {path:'images/'+pathPrefix+'/sailboat.png', scale: unitScales[6], offsetX: 0, offsetY: -4},
 	'landmine':   {path:'images/'+pathPrefix+'/landmine1.png', scale:1.8, offsetX: 0, offsetY: -10},
+	'cannon':     {path:'images/'+pathPrefix+'/cannon.png', scale: 1.5, offsetX: 0, offsetY: -4},
 
 	
 	//'castle1':  {path:'images/orig-scaled/128x128/castle1.png', scale:1.8, offsetX: 0},
@@ -7322,10 +7331,15 @@ function drawMapTiles(){
 		const x = axialToPixelX(q, r);
 		const y = axialToPixelY(q, r);
 
+		// all water tiles are actually shores, no water tiles are included after saving map.
 		if (getTileType(tile) === 'water') {
-			// debug text for water tiles:
-			//ctx.fillStyle = "#FFFFFF";
-			//ctx.fillText("W", x, y+20);
+			// draw shores with lighter water by transparent hex:
+			ctx.save();
+			drawHexagonPath(x, y);
+			ctx.fillStyle = "rgba(200,200,255, 0.035)";
+			ctx.fill();
+			ctx.restore();
+			
 			if(useInfiniteWater){
 				continue; // skip water tiles.
 			}
@@ -7660,6 +7674,7 @@ function drawHighlights(){
 					if(neighTileIndex != -1){
 						let nTile = gameState.map.tilesData[neighTileIndex];
 						if(nTile.ownerIndex !== tile.ownerIndex){
+							//console.log(nTile.ownerIndex, tile.ownerIndex);
 							highlightedLines.push(neighbourIndex);
 						}
 					}else{
@@ -8006,6 +8021,7 @@ function drawUnits(){
 	drawUnitsByInternalType("soldier");
 	drawUnitsByInternalType("boat");
 	drawUnitsByInternalType("mine");
+	//drawUnitsByInternalType("cannon"); // todo: make the code.
 	
 	let pulseOffsetX = 10+(-8*pulseScale(0,2, PULSE_SPEED));
 	
@@ -8151,7 +8167,7 @@ function drawPlacementHighlight(){
 		
 		let cur_highlight =  mouseHex.q+", "+mouseHex.r;
 		
-		// run isPlacementValid() only when mouse has moved to different hex:
+		// run  isPlacementValid() only when mouse has moved to different hex:
 		if(prev_highlight !== cur_highlight){
 			//console.warn("prev_drawPlacementHighlight !== curstr");
 			
@@ -9383,7 +9399,7 @@ function getTileType(tile){
 	if(tile){
 		return tile.type;
 	}
-	return null;
+	return "water";
 }
 
 
@@ -9747,30 +9763,29 @@ function isUnitNextToUnit(unit1, unit2){
 }
 
 
+function sendTileUpdate(hex){
+	console.warn("sendTileUpdate");
+	if(!localPlayer.isSpectator){
+		sendToHost({
+			type: ACTION.action_edit_tile,
+			hex: hex,
+			//playerIndex: localPlayer.playerIndex,
+		});
+	}
+}
 
-let EDITOR_ENABLED = 0;
+
+//let EDITOR_ENABLED = 0;
 
 let routeHighlight = [];
 
 function handleHexClick(hex) {
 	if(REPLAY_ENABLED) return;
 	
-	if(EDITOR_ENABLED){
-
-		if(!getTileAt(hex.q, hex.r)){
-			setTileAt(hex.q, hex.r, {type:"land", ownerIndex: -1, object: null, savings: 0});
-		}else{
-			let tile = getTileAt(hex.q, hex.r);
-			tile.type = tile.type === "water" ? "land" : "water";
-			tile.ownerIndex = -1;
-			tile.object = null;
-			tile.savings = 0;
-		}
-		console.log("clicked hex: ");
-		console.log(hex);
-		console.log(getTileAt(hex.q, hex.r));
-
-		updateTileAndNeighbourOutlines(hex.q, hex.r);
+	if(gameState.settings.editorEnabled){
+		
+		
+		sendTileUpdate(hex);
 		
 		
 	}else{
@@ -11231,7 +11246,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 		//if (!canAffordCheck(actionPool.totalSavings, unitCost)) {
 		//	return badMove("not_enough_money");
 		//}
-		if(getTileAt(hex.q, hex.r)){
+		if(!isHexWater(hex.q, hex.r)){
 			return badMove('not_water');
 		}
 		if(getUnitAt(hex.q, hex.r)){
@@ -11473,12 +11488,18 @@ function pushMergedUpdates(updates, updatesList){
 }
 
 
+function actionAllowedForEveryone(action){
+	if(action.type === ACTION.action_edit_tile){
+		return true;
+	}
+	return false;
+}
 
 
 // HOST-ONLY function
 // NOTE: MUST use playerId here.
 function executeAction(playerId, action) {
-	console.log("executeAction");
+	console.log("executeAction", action);
 
 	if (!localPlayer.isHost) return;
 	//console.log("executeAction 2");
@@ -11486,9 +11507,11 @@ function executeAction(playerId, action) {
 	const player = getPlayer(playerId);
 	const playerIndex = getPlayerIndex(playerId);
 	
-	if (!player || player.id !== getCurrentTurnPlayer()?.id) {
-		console.warn(`Action from wrong player: ${playerId}`);
-		return;
+	if(!actionAllowedForEveryone(action)){
+		if (!player || player.id !== getCurrentTurnPlayer()?.id) {
+			console.warn(`Action from wrong player: ${playerId}`);
+			return;
+		}
 	}
 	
 	//console.log("executeAction 3");
@@ -11957,6 +11980,13 @@ function executeAction(playerId, action) {
 				}
 			}
 			
+		}
+		break;
+		case ACTION.action_edit_tile: {
+			console.warn("action_edit_tile");
+			if(!player.isSpectator){
+				updates.push({ type: ACTION.tile_edited, hex: action.hex, playerIndex: playerIndex});
+			}
 		}
 		break;
 		case ACTION.action_load_unit: {
@@ -14684,6 +14714,11 @@ function handleHostData(data) {
 			updateGameUI();
 		}
 		break;
+		case ACTION.settings_update: {
+			console.warn("settings_update");
+			gameState.settings = data.settings;
+		}
+		break;
 		case ACTION.lobby_update: {
 			gameState.settings = data.settings;
 			gameState.players = data.players;
@@ -14782,6 +14817,25 @@ function handleHostData(data) {
 				needsUIUpdate = true;
 				updateHighlights();
 			}
+		}
+		break;
+		case ACTION.tile_edited: {
+			console.warn("tile_edited");
+			let hex = data.hex;
+			if(!getTileAt(hex.q, hex.r)){
+				setTileAt(hex.q, hex.r, {type:"land", ownerIndex: -1, object: null, savings: 0});
+			}else{
+				let tile = getTileAt(hex.q, hex.r);
+				tile.type = tile.type === "water" ? "land" : "water";
+				tile.ownerIndex = -1;
+				tile.object = null;
+				tile.savings = 0;
+			}
+			console.log("clicked hex: ");
+			console.log(hex);
+			console.log(getTileAt(hex.q, hex.r));
+
+			updateTileAndNeighbourOutlines(hex.q, hex.r);
 		}
 		break;
 		case ACTION.tile_changed: {
@@ -15273,6 +15327,7 @@ function handleClientData(peerId, data) {
 		case ACTION.action_build_object:
 		case ACTION.action_load_unit:
 		case ACTION.action_unload_unit:
+		case ACTION.action_edit_tile:
 			//console.log("handleClientData executeAction "+data.type);
 			if (gameState.settings.gameStarted) {
 				executeAction(peerId, data);
@@ -16008,6 +16063,17 @@ function updateLobbyUI() {
 	}
 }
 
+
+function broadcastSettings(){
+	if (!localPlayer.isHost) return;
+	// Send to all clients
+	broadcast({
+		type: ACTION.settings_update,
+		settings: gameState.settings,
+	});
+}
+
+
 function broadcastLobbyState(settings = gameState.settings, players = gameState.players, map = gameState.map) {
 	if (!localPlayer.isHost) return;
 	// Update host's own UI
@@ -16252,21 +16318,34 @@ async function decompressToString(uint8) {
 function prepareSavedGameState(state){
 	console.warn("prepareSavedGameState state:");
 	console.warn(state);
+	
 	delete state.map.tiles;
-	for(let i = 0; i < state.map.tilesData.length; i++){
+	
+	//for(let i = 0; i < state.map.tilesData.length; i++){
+	for(let i = state.map.tilesData.length-1; i >= 0; i--){
 		let tile = state.map.tilesData[i];
-		delete tile.neighbours;
-		delete tile.isProtected;
-		delete tile.outline;
-		// for object animations:
-		delete tile.animationFinished;
-		delete tile.animationStyle;
-		delete tile.creationTime;
-		// for hex dying animations:
-		delete tile.isDying;
-		delete tile.deadStartTime;
-		delete tile.deadOwnerIndex;
+		if(tile.type === 'water'){
+			// remove all water tiles:
+			state.map.tilesData.splice(i, 1);
+			continue;
+		}else{
+			delete tile.neighbours;
+			delete tile.isProtected;
+			delete tile.outline;
+			// for object animations:
+			delete tile.animationFinished;
+			delete tile.animationStyle;
+			delete tile.creationTime;
+			// for hex dying animations:
+			delete tile.isDying;
+			delete tile.deadStartTime;
+			delete tile.deadOwnerIndex;
+			// for hex appearing animations:
+			delete tile.isAppearing;
+			delete tile.appearStartTime;
+		}
 	}
+	
 	for(let i = 0; i < state.units.length; i++){
 		let unit = state.units[i];
 		delete unit.animationFinished;
@@ -17259,7 +17338,7 @@ function updateTileAndNeighbourOutlines(q, r){
 function updateShoreTiles(q, r){
 	let tile = getTileAt(q,r);
 	if(isTileWater(tile)){
-		updateTileOutlines(q,r, true, null, "land");			
+		updateShoreTileOutlines(q,r, true, null);			
 	}
 	if(tile){
 		let neigh = getHexNeighbors(tile.q, tile.r);
@@ -17267,16 +17346,23 @@ function updateShoreTiles(q, r){
 			let n = neigh[i];
 			const nTile = getTileAt(n.q, n.r);
 			if(isTileWater(nTile)){
-				updateTileOutlines(n.q, n.r, true, null, "land");			
+				updateShoreTileOutlines(n.q, n.r, true, null);			
 			}
 		}
 	}
 }
 
 
+function clearWaterEdgeTiles(){
+	for(let t = 0; t < gameState.map.tilesData.length; t++){
+		let tile = gameState.map.tilesData[t];
+	}
+}
+
 // water edge tiles edge water tiles water edges water edge shading water edges shading
 // generatelandshading generateshoreshading generate land generate shore
 function generateWaterEdgeTiles(){
+	//return;
 	let edges = {};
 	// find water edges:
 	for(let t = 0; t < gameState.map.tilesData.length; t++){
@@ -17298,13 +17384,14 @@ function generateWaterEdgeTiles(){
 		let r = Number(hex[1]);
 		//let tile = {type: "water", ownerIndex: -1, object: null, savings: 0};
 		//setTileAt(q, r, tile);
-		updateTileOutlines(q, r, true, null, "land");
+		updateShoreTileOutlines(q, r, true, null);
 	}
 	
 }
 
 
-function updateTileOutlines(q, r, allowCreation = true, state = null, typeToMatch = "water"){
+function updateShoreTileOutlines(q, r, allowCreation = true, state = null){
+	//return;
 	//console.warn("updateTileOutlines"+q+","+r);
 	let lines = [];
 	let neigh = getHexNeighbors(q, r);
@@ -17312,13 +17399,45 @@ function updateTileOutlines(q, r, allowCreation = true, state = null, typeToMatc
 		let n = neigh[i];
 		const nTile = getTileAt(n.q, n.r, state);
 		let addline = 0;
-		if (getTileType(nTile) === typeToMatch) {
+		if (getTileType(nTile) === "land") {
+			addline = 1;
+		}
+	
+		if(addline){
+			lines.push(i);
+		}
+	}
+
+	setOutlineAt(q, r, lines, allowCreation, state);
+}
+
+
+function updateTileOutlines(q, r, allowCreation = true, state = null){
+	//console.warn("updateTileOutlines"+q+","+r);
+	let lines = [];
+	let neigh = getHexNeighbors(q, r);
+	for(let i = 0; i < neigh.length; i++){
+		let n = neigh[i];
+		const nTile = getTileAt(n.q, n.r, state);
+		let addline = 0;
+		
+		if (getTileType(nTile) === "water") {
+			addline = 1;
+		}
+		
+		
+		
+		/*
+		if (nTile && nTile.type === 'water') {
 			addline = 1;
 		}
 		// if out of bounds, add outlines also:
-		if (!nTile && typeToMatch === "water"){
+		if (!nTile){
 			addline = 1;
 		}
+		*/
+		
+		
 		if(addline){
 			lines.push(i);
 		}
@@ -17352,7 +17471,7 @@ function generateMap(width, height) {
 		let tile = gameState.map.tilesData[t];
 		updateTileOutlines(tile.q, tile.r);
 	}
-	generateWaterEdgeTiles();
+	//generateWaterEdgeTiles();
 	
 }
 
@@ -17841,6 +17960,32 @@ function startGameCheck(){
 }
 
 
+// makes sure map.tiles links properly to map.tilesData and tile.neighbours also links to proper tiles.
+function rebuildTileLinks(){
+	gameState.map.tiles = {};
+	for(let t = 0; t < gameState.map.tilesData.length; t++){
+		let tile = gameState.map.tilesData[t];
+		tile.tileIndex = t;
+		gameState.map.tiles[`${tile.q},${tile.r}`] = t;
+	}
+	for(let t = 0; t < gameState.map.tilesData.length; t++){
+		let tile = gameState.map.tilesData[t];
+		let neigh = getHexNeighbors(tile.q, tile.r);
+		let negs = [];
+		for(let n = 0; n < neigh.length; n++){
+			let nn = neigh[n];
+			let nTile = getTileAt(nn.q, nn.r);
+			if(isTileWater(nTile)){
+				negs.push(-1);
+			}else{
+				negs.push(nTile.tileIndex);
+			}
+		}
+		tile.neighbours = negs;
+	}
+}
+
+
 function startGame() {
 	
 
@@ -17860,6 +18005,7 @@ function startGame() {
 		
 		gameState = loadedGameState;
 		gameState.settings.gameStarted = true;
+		gameState.settings.editorEnabled = false;
 		
 		// set loaded game players to current players in the same order:
 		for(let i = 0; i < gameState.players.length; i++){
@@ -17879,7 +18025,14 @@ function startGame() {
 		}
 		for(let i = 0; i < gameState.map.tilesData.length; i++){
 			gameState.map.tilesData[i].animationFinished = 1;
+			// clear appear animation info:
+			delete gameState.map.tilesData[i].isAppearing;
+			delete gameState.map.tilesData[i].appearStartTime;
 		}
+
+		generateWaterEdgeTiles();
+		
+		rebuildTileLinks(); // todo: remove...
 		
 		/*
 		// Match current players to loaded players
@@ -17973,7 +18126,10 @@ function startGame() {
 		}
 		
 		gameState.settings.gameStarted = true;
+		
 		generateMap(gameState.settings.mapWidth, gameState.settings.mapHeight);
+		generateWaterEdgeTiles();
+		
 		spawnPlayers();
 		spawnTrees();
 		spawnRocks();
@@ -18875,7 +19031,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 				chatInput.value = '';
 				
 				// process local commands:
-				switch(message){
+				switch(message.toLowerCase()){
 					case "/debug":
 						drawDebugText = !drawDebugText;
 						drawRanges = drawDebugText;
@@ -18884,7 +19040,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 						refreshCanvas();
 					break;
 					case "/editor":
-						EDITOR_ENABLED = !EDITOR_ENABLED;
+						if(localPlayer.isHost){
+							//EDITOR_ENABLED = !EDITOR_ENABLED;
+							gameState.settings.editorEnabled = !gameState.settings.editorEnabled;
+							broadcastSettings();
+						}
 					break;
 					case "/givemoney":
 						givemoney(1000);
