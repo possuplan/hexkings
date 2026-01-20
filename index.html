@@ -1003,7 +1003,7 @@ button.redbutton:hover {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	background: rgba(0, 0, 0, 0.7);
+	---background: rgba(0, 0, 0, 0.7);
 	z-index: 9999;
 }
 
@@ -1413,6 +1413,7 @@ input.disabled {
 }
 
 #game-settings-btn,
+#game-settings-btn2,
 #lobby-game-settings-btn {
 	background-image: url('images/ui/settings-icon.png');
 }
@@ -1595,6 +1596,11 @@ input.disabled {
 	border: 1px solid #000;
 }
 
+.hidden {
+	display:none;
+}
+
+
 </style>
 </head>
 <body>
@@ -1758,14 +1764,22 @@ input.disabled {
 <div id="game-settings-ui">
 	<div id="game-settings-ui-wrapper">
 		<div id="game-settings-ui-wrapper2" class="ui-menu ui-panel settings-panel scrollable">
+
 			<div class="input-group">
-				<div style="flex: 5; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
+				<div style="flex: 4; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
 					Settings
+				</div>
+				<div style="flex: 3;" class="ingame-class hidden">
+					<button id="save-game-btn" class="gamebutton">Save game</button>
+				</div>
+				<div style="flex: 3;" class="ingame-class hidden">
+					<button id="quit-game-btn" class="gamebutton redbutton">Quit game</button>
 				</div>
 				<div style="flex: 1;">
 					<button id="close-game-settings-btn" class="gamebutton largefont">×</button>
 				</div>
 			</div>
+			
 			
 			<div class="input-group-tabs">
 				<div style="flex: 1;">
@@ -1814,14 +1828,21 @@ input.disabled {
 				</div>
 				<div>
 					<label class="inline">
-						<input type="checkbox" id="game-settings-gfx-shading-shore" checked>
-						Shores shading
+						<input type="checkbox" id="game-settings-gfx-shading-land3d" checked>
+						Elevated land
 					</label>
 				</div>
 				<div>
 					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-shading-shore" checked>
+						Shores shading
+					</label>
+				</div>
+
+				<div>
+					<label class="inline">
 						<input type="checkbox" id="game-settings-gfx-shading-pooledges" checked>
-						Pool edges
+						Unselected pool edges
 					</label>
 				</div>
 				
@@ -2251,15 +2272,6 @@ input.disabled {
 		<div id="ui-left">
 			<div class="ui-menu ui-panel">
 				
-				<div class="input-group" style="display:none">
-					<div style="flex: 1;">
-						<button id="quit-game-btn" class="gamebutton redbutton">Quit game</button>
-					</div>
-					<div style="flex: 1; display:none">
-						<button id="settings-btn" class="gamebutton largefont" title="Settings"></button>
-					</div>
-				</div>
-				
 				
 			
 				<div class="input-group">
@@ -2350,7 +2362,9 @@ input.disabled {
 						<button id="end-turn-btn" class="gamebutton primary" title="End turn"></button>
 						<button id="previous-unit-btn" class="gamebutton" title="Previous unit"></button>
 						<button id="next-unit-btn" class="gamebutton" title="Next unit"></button>
-						<button id="quick-settings-btn" class="gamebutton" title="Settings"></button>
+						
+						<button id="game-settings-btn2" class="gamebutton" title="Settings"></button>
+						<button id="quick-settings-btn" class="gamebutton" title="Settings" style="display:none"></button>
 						<button id="toggle-ui-btn" class="gamebutton" title="Open chat"></button>
 					</div>
 				</div>
@@ -4139,6 +4153,21 @@ let gameState = {
 	// Economy pools are calculated, not stored directly
 };
 
+// changeable render settings, in the settings popup:
+let renderSettings = {
+	drawShoresShading: true,
+	drawWaterShading: true,
+	drawLandShading: true,
+	drawParticles: true,
+	drawPoolEdges: true,
+	drawWater: true,
+};
+
+let gameSettings = {
+	autosave: true,
+};
+
+
 function resetGameState(){
 	// TODO:
 	// todo: causes weird bugs when the client player goes to start page and starts hosting his own room.
@@ -5380,9 +5409,9 @@ const buildPopupClose = document.getElementById('build-popup-close');
 const toggleUiBtn = document.getElementById('toggle-ui-btn');
 const quitGameBtn = document.getElementById('quit-game-btn');
 const quitGameBtn2 = document.getElementById('quit-game-btn2');
+const saveGameBtn = document.getElementById('save-game-btn');
 
-
-const settingsBtn = document.getElementById('settings-btn');
+//const settingsBtn = document.getElementById('settings-btn');
 const quickSettingsBtn = document.getElementById('quick-settings-btn');
 
 const closeSettingsBtn = document.getElementById('close-settings-btn');
@@ -5390,6 +5419,8 @@ const settingsUi = document.getElementById('settings-ui');
 
 
 const gameSettingsBtn = document.getElementById('game-settings-btn');
+const gameSettingsBtn2 = document.getElementById('game-settings-btn2');
+
 const closeGameSettingsBtn = document.getElementById('close-game-settings-btn');
 const gameSettingsUi = document.getElementById('game-settings-ui');
 const gameSettingsUiWrapper2 = document.getElementById('game-settings-ui-wrapper2');
@@ -5441,6 +5472,11 @@ startGameCheckBtn.addEventListener("click", (e) => {
 
 
 gameSettingsBtn.addEventListener("click", (e) => {
+	e.stopPropagation(); // needed or it will close the popup instantly due to check of handleOutside()
+	openGameSettings();
+	hideConfirmationView();
+});
+gameSettingsBtn2.addEventListener("click", (e) => {
 	e.stopPropagation(); // needed or it will close the popup instantly due to check of handleOutside()
 	openGameSettings();
 	hideConfirmationView();
@@ -5498,10 +5534,12 @@ quickSettingsBtn.addEventListener("click", (e) => {
 	toggleSettings();
 });
 
+/*
 settingsBtn.addEventListener("click", (e) => {
 	e.stopPropagation(); // needed or it will close the popup instantly due to check of handleOutside()
 	toggleSettings();
 });
+*/
 
 closeSettingsBtn.addEventListener("click", () => {
 	toggleSettings();
@@ -5867,6 +5905,14 @@ function showPage(pageId) {
 		if(!musicMuted){
 			playMusic();
 		}
+		document.querySelectorAll(".ingame-class").forEach(el => {
+			el.classList.remove("hidden");
+		});
+	}
+	if(pageId === 'lobby'){
+		document.querySelectorAll(".ingame-class").forEach(el => {
+			el.classList.add("hidden");
+		});
 	}
 	Object.values(pages).forEach(page => page.classList.remove('active'));
 	if (pages[pageId]) {
@@ -7864,6 +7910,7 @@ function drawHighlights(){
 							}
 						}
 
+
 						ctx.setLineDash([12.5, 15]);
 						if(isSelectedPool){
 							ctx.strokeStyle = 'rgba(255,255,0, 1)';
@@ -7877,17 +7924,25 @@ function drawHighlights(){
 						ctx.stroke();
 						ctx.lineCap = 'butt'; // reset to default
 						ctx.setLineDash([]);
+
+						
 					}else{
-						// enemy pool highlight
-						let pulse = 1;
-						if(poolSelected){
-							pulse = pulseScale(0.3, 1.0, 0.008);
+						let drawEdges = true;
+						if(!renderSettings.drawPoolEdges && !poolSelected){
+							drawEdges = false;
 						}
-						ctx.strokeStyle = hexToRgba(color, opacity*pulse);
-						ctx.lineWidth = 3;
-						ctx.lineCap = 'round';
-						ctx.stroke();
-						ctx.lineCap = 'butt'; // reset to default
+						if(drawEdges){
+							// enemy pool highlight
+							let pulse = 1;
+							if(poolSelected){
+								pulse = pulseScale(0.3, 1.0, 0.008);
+							}
+							ctx.strokeStyle = hexToRgba(color, opacity*pulse);
+							ctx.lineWidth = 3;
+							ctx.lineCap = 'round';
+							ctx.stroke();
+							ctx.lineCap = 'butt'; // reset to default
+						}
 					}
 				}
 			}
@@ -9066,7 +9121,12 @@ function render() {
 	
 	// Save the context state
 	ctx.save();
-	drawInfiniteWater();
+	
+	if(renderSettings.drawWater){
+		drawInfiniteWater();
+	}else{
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	}
 
 	//ctx.translate(viewport.x, viewport.y);
 	//ctx.scale(viewport.zoom, viewport.zoom);
@@ -9085,9 +9145,16 @@ function render() {
 	ctx.textBaseline = 'middle';
 	ctx.font = `11px sans-serif`;
 	
+
+
+	
 	// MAP WATER SHADING (3d effect):
-	drawMapShading(1); // shores
-	drawMapShading(0); // water 3d effect
+	if(renderSettings.drawShoresShading && renderSettings.drawWater){
+		drawMapShading(1); // shores
+	}
+	if(renderSettings.drawWaterShading){
+		drawMapShading(0); // water 3d effect
+	}
 	
 	// MAP TILE DRAWING:
 	if(drawAllTiles){
@@ -9095,15 +9162,20 @@ function render() {
 	}
 	
 	// MAP LAND SHADING (3d effect):
-	drawMapShading(2); // land shading
+	if(renderSettings.drawLandShading){
+		drawMapShading(2); // land shading
+	}
 
+	
 	// HIGHLIGHTS DRAWING:
 	if(!previewdraw){
 		drawHighlights();
 	}
 	
 	// draw under objects: cross explosion particles (death by starvation)
-	renderParticles("crossExplosion");
+	if(renderSettings.drawParticles){
+		renderParticles("crossExplosion");
+	}
 
 	// OBJECTS DRAWING:
 	if(!previewdraw){
@@ -9182,9 +9254,10 @@ function render() {
 		drawUnitSelection();
 	}
 	
-	// explosion particles (default type = exp)
-	renderParticles("exp");
-
+	if(renderSettings.drawParticles){
+		// explosion particles (default type = exp)
+		renderParticles("exp");
+	}
 
 
 	
@@ -14816,6 +14889,8 @@ function handleHostData(data) {
 			INITIAL_STATE = deepClone(gameState);
 	
 			showPage('game');
+			
+			
 			updateGameUI();
 			if(isMyTurn()){
 				//centerAndSelectFirstUnit();
@@ -15354,7 +15429,9 @@ function handleHostData(data) {
 				//       IT WILL make it unplayable though, so loading the game wont work.
 				// maybe catch savings_update as well, so it will keep track of pools savings?
 				//gameState.networkHistory = NETWORK_HISTORY;
-				saveGameToDB(gameState);
+				if(gameSettings.autosave){
+					saveGameToDB(gameState);
+				}
 				
 				//console.warn("XXYY: game saved, network history saved.");
 			break;
@@ -18452,8 +18529,33 @@ document.addEventListener('keyup', (event) => {
 
 
 
-let mouseDownInsidePopup = false;
 
+
+const settings1 = document.getElementById('game-settings-gfx-shading-land');
+const settings2 = document.getElementById('game-settings-gfx-shading-land3d');
+const settings3 = document.getElementById('game-settings-gfx-shading-shore');
+const settings4 = document.getElementById('game-settings-gfx-shading-pooledges');
+const settings5 = document.getElementById('game-settings-gfx-particles');
+const settings6 = document.getElementById('game-settings-gfx-water');
+
+const settings7 = document.getElementById('game-settings-autosave');
+
+
+settings1.addEventListener("click", () => {renderSettings.drawLandShading = settings1.checked;});
+settings2.addEventListener("click", () => {renderSettings.drawWaterShading = settings2.checked;});
+settings3.addEventListener("click", () => {renderSettings.drawShoresShading = settings3.checked;});
+settings4.addEventListener("click", () => {renderSettings.drawPoolEdges = settings4.checked;});
+settings5.addEventListener("click", () => {renderSettings.drawParticles = settings5.checked;});
+settings6.addEventListener("click", () => {renderSettings.drawWater = settings6.checked;});
+settings7.addEventListener("click", () => {gameSettings.autosave = settings7.checked;});
+
+
+
+
+
+
+
+let mouseDownInsidePopup = false;
 
 // handlePointer bugged, if x or y is zero, causes error.
 function handleOutside(e) {
@@ -18464,6 +18566,7 @@ function handleOutside(e) {
 		document.querySelectorAll(".tab-button").forEach(el => {
 			el.classList.remove("active");
 		});
+		
 		
 		e.target.classList.add("active");
 		
@@ -19075,6 +19178,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 	};
 	quitGameBtn2.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
 	quitGameBtn2.tabIndex = -1; //remove it from the tab order
+
+
+	saveGameBtn.onclick = () => {
+		saveGameToDB(gameState);
+		addSystemChatMessage("Game saved.", '#FFF');
+	};
+	saveGameBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
+	saveGameBtn.tabIndex = -1; //remove it from the tab order
 	
 	
 	quitGameBtn.onclick = () => {
