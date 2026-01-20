@@ -218,6 +218,36 @@ button[disabled] {
 
 
 
+.tab-button {
+	padding:4px;
+	
+	padding-top: 2px;
+
+	font-size: 15px;
+	height: 44px;
+
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+.tab-button.active {
+	background-color:#45723d;
+}
+
+.tab {
+    display: none;
+}
+
+.tab.active {
+    display: block;
+}
+
+.inline {
+	display:inline-block;
+}
 
 
 #build-soldier-btn,
@@ -288,6 +318,12 @@ label {
 
 .input-group-nogap {
 	display: flex;
+	margin-bottom: 7px;
+}
+
+.input-group-tabs {
+	display: flex;
+	gap:1px;
 	margin-bottom: 7px;
 }
 
@@ -444,7 +480,7 @@ label {
 	background: rgba(0, 0, 0, 0.8);
 	---backdrop-filter: blur(5px);
 	padding: 2px 6px 2px 6px;
-	max-height: 90vh;
+	---max-height: 90vh;
 	overflow-y: auto;
 }
 
@@ -952,6 +988,11 @@ button.redbutton:hover {
 	flex-direction: column;
 	align-items: center;
 	width:100%;
+	height:100%;
+}
+
+#game-settings-ui-wrapper2 {
+	height:100%;
 }
 
 /* Popup container */
@@ -1625,7 +1666,7 @@ input.disabled {
 		<div id="move-confirmation-wrapper2" class="ui-menu ui-panel settings-panel">
 			<p style="color:#FFFF00">Note: Undo is no longer possible after claiming an enemy tile.</p>
 
-			<label style="display:inline-block">
+			<label class="inline">
 				<input type="checkbox" id="move-confirmation-popup-dont-show-again">
 				Do not show this again
 			</label>
@@ -1651,6 +1692,8 @@ input.disabled {
 					<button id="close-settings-btn" class="gamebutton largefont">×</button>
 				</div>
 			</div>
+			
+
 			
 			Music:
 			<div class="music-volume-wrapper">
@@ -1724,19 +1767,83 @@ input.disabled {
 				</div>
 			</div>
 			
+			<div class="input-group-tabs">
+				<div style="flex: 1;">
+					<button data-tabclass="tab-game" class="tab-game-settings tab-button active">Game</button>
+				</div>
+				<div style="flex: 1;">
+					<button data-tabclass="tab-audio" class="tab-game-settings tab-button">Audio</button>
+				</div>
+				<div style="flex: 1;">
+					<button data-tabclass="tab-graphics" class="tab-game-settings tab-button">Graphics</button>
+				</div>
+				<div style="flex: 1;">
+					<button data-tabclass="tab-other" class="tab-game-settings tab-button">Other</button>
+				</div>
+			</div>
 			
+			<!-- not used yet, supposed to show this class when prompting user with confirmation, for-settings should be the visible class -->
 			<div class="for-confirmation">
 				Press accept settings for host to start game:
 				<button id="confirm-game-settings-btn" class="gamebutton">Accept Settings</button>
 			</div>
 			
-			<div class="for-settings">
+			<div class="tab tab-other">
+				<div class="settings-title">
+					Autosave:
+				</div>
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-autosave" checked>
+						Enable
+					</label>
+				</div>
+			</div>
+			
+			
+			<div class="tab tab-graphics">
+				<div class="settings-title">
+					Render:
+				</div>
+
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-shading-land" checked>
+						Land shading
+					</label>
+				</div>
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-shading-shore" checked>
+						Shores shading
+					</label>
+				</div>
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-shading-pooledges" checked>
+						Pool edges
+					</label>
+				</div>
+				
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-particles" checked>
+						Particles
+					</label>
+				</div>
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-water" checked>
+						Water
+					</label>
+				</div>
+			</div>
+			
+			<div class="tab tab-audio">
+
 				<div class="settings-title">
 					Music player:
 				</div>
-				
-				
-			
 				<div class="music-volume-wrapper">
 					<div class="input-group-nogap" style="align-items: center; gap:5px">
 						<div class="settings-musicplayer-elem">
@@ -1759,104 +1866,108 @@ input.disabled {
 					</div>
 				</div>
 				<br>
-				
+
 			</div>
 			
-			<div>
-				<div class="input-group">
-					<div style="flex: 1;">
-						<div class="settings-title">
-							Start money per hex:
+			<div class="tab tab-game active">
+				
+				<div>
+					<div class="input-group">
+						<div style="flex: 1;">
+							<div class="settings-title">
+								Start money per hex:
+							</div>
+							<input type="number" id="start-money-per-hex" step="any" disabled>
 						</div>
-						<input type="number" id="start-money-per-hex" step="any" disabled>
+						<div style="flex: 1;">
+							<div class="settings-title">
+								Theme:
+							</div>
+							<select id="map-theme" disabled>
+								<option value="1">Summer</option>
+								<option value="2">Winter</option>
+							</select>
+						</div>
 					</div>
-					<div style="flex: 1;">
-						<div class="settings-title">
-							Theme:
-						</div>
-						<select id="map-theme" disabled>
-							<option value="1">Summer</option>
-							<option value="2">Winter</option>
+				</div>
+				
+				
+				<br>
+				<div>
+					<div class="settings-title">
+						Game end rule:
+					</div>
+					<div class="input-group">
+						<select id="game-end-rule" disabled>
+							<option value="0">Lose all warriors & Cannot buy anything</option>
+							<option value="1">Lose all warriors</option>
 						</select>
 					</div>
 				</div>
-			</div>
-			
-			
-			<br>
-			<div>
-				<div class="settings-title">
-					Game end rule:
-				</div>
-				<div class="input-group">
-					<select id="game-end-rule" disabled>
-						<option value="0">Lose all warriors & Cannot buy anything</option>
-						<option value="1">Lose all warriors</option>
-					</select>
-				</div>
-			</div>
-			
-			
-			<br>
-			<div>
-				<div class="input-group-nogap">
-					<div class="settings-image-elem">
-						<div class="image settings-image image-tree"></div>
-					</div>
-					<div style="flex: 1;">
-						<div class="settings-title-nopad">
-							Trees chance per tile:
+				
+				
+				<br>
+				<div>
+					<div class="input-group-nogap">
+						<div class="settings-image-elem">
+							<div class="image settings-image image-tree"></div>
 						</div>
-						<div class="input-group" style="align-items:center">
-							<div style="flex: 4;">
-								<input type="range" id="tree-percent" min="0" max="100" value="15" disabled>
+						<div style="flex: 1;">
+							<div class="settings-title-nopad">
+								Trees chance per tile:
 							</div>
-							<div style="flex: 1;">
-								<input type="text" id="tree-percent-text" class="settings-percent-input" disabled>
+							<div class="input-group" style="align-items:center">
+								<div style="flex: 4;">
+									<input type="range" id="tree-percent" min="0" max="100" value="15" disabled>
+								</div>
+								<div style="flex: 1;">
+									<input type="text" id="tree-percent-text" class="settings-percent-input" disabled>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="input-group-nogap">
-					<div class="settings-image-elem">
-						<div class="image settings-image image-rock"></div>
-					</div>
-					<div style="flex: 1;">
-						<div class="settings-title-nopad">
-							Rocks chance per tile:
+					<div class="input-group-nogap">
+						<div class="settings-image-elem">
+							<div class="image settings-image image-rock"></div>
 						</div>
-						<div class="input-group" style="align-items:center">
-							<div style="flex: 4;">
-								<input type="range" id="rock-percent" min="0" max="100" value="15" disabled>
+						<div style="flex: 1;">
+							<div class="settings-title-nopad">
+								Rocks chance per tile:
 							</div>
-							<div style="flex: 1;">
-								<input type="text" id="rock-percent-text" class="settings-percent-input" disabled>
+							<div class="input-group" style="align-items:center">
+								<div style="flex: 4;">
+									<input type="range" id="rock-percent" min="0" max="100" value="15" disabled>
+								</div>
+								<div style="flex: 1;">
+									<input type="text" id="rock-percent-text" class="settings-percent-input" disabled>
+								</div>
 							</div>
 						</div>
 					</div>
+					
+					<div class="input-group-nogap">
+						<div class="settings-image-elem">
+							<div class="image settings-image image-mine"></div>
+						</div>
+						<div style="flex: 1;">
+							<div class="settings-title-nopad">
+								Mines chance per tile:
+							</div>
+							<div class="input-group" style="align-items:center">
+								<div style="flex: 4;">
+									<input type="range" id="mine-percent" min="0" max="100" value="15" disabled>
+								</div>
+								<div style="flex: 1;">
+									<input type="text" id="mine-percent-text" class="settings-percent-input" disabled>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+			
 				</div>
-				
-				<div class="input-group-nogap">
-					<div class="settings-image-elem">
-						<div class="image settings-image image-mine"></div>
-					</div>
-					<div style="flex: 1;">
-						<div class="settings-title-nopad">
-							Mines chance per tile:
-						</div>
-						<div class="input-group" style="align-items:center">
-							<div style="flex: 4;">
-								<input type="range" id="mine-percent" min="0" max="100" value="15" disabled>
-							</div>
-							<div style="flex: 1;">
-								<input type="text" id="mine-percent-text" class="settings-percent-input" disabled>
-							</div>
-						</div>
-					</div>
-				</div>
-				
-				
+			
 			</div>
 
 		</div>
@@ -7243,6 +7354,21 @@ function drawMapShading(type){
 			}
 		}else{
 			if(type === 1){ // shore shading
+			
+				// draw shores with lighter water by transparent hex:
+				const r = viewport.rotation;
+
+				// We want the vector (0, height) in Screen Space.
+				// To get that in our Rotated World Space, we rotate it by -r.
+				const offX = waterShadingHeight * Math.sin(r);
+				const offY = waterShadingHeight * Math.cos(r);
+				
+				//ctx.save(); // probably not necessary here since the other drawings doesnt use them either.
+				drawHexagonPath(x+offX, y+offY);
+				ctx.fillStyle = "rgba(200,200,255, 0.035)";
+				ctx.fill();
+				//ctx.restore();
+				
 				drawShoreShading(x, y, tile.outline, 1, 0.9*pulse, 0.7*pulse*pulse, "rgba(200,200,255, 0.2)", "rgba(200,200,255, 0.1)");
 			}
 		}
@@ -7344,16 +7470,9 @@ function drawMapTiles(){
 
 		// all water tiles are actually shores, no water tiles are included after saving map.
 		if (getTileType(tile) === 'water') {
-			// draw shores with lighter water by transparent hex:
-			ctx.save();
-			drawHexagonPath(x, y);
-			ctx.fillStyle = "rgba(200,200,255, 0.035)";
-			ctx.fill();
-			ctx.restore();
-			
-			if(useInfiniteWater){
+			//if(useInfiniteWater){
 				continue; // skip water tiles.
-			}
+			//}
 		}
 		
 		// --- Culling Check ---
@@ -18335,9 +18454,32 @@ document.addEventListener('keyup', (event) => {
 
 let mouseDownInsidePopup = false;
 
+
 // handlePointer bugged, if x or y is zero, causes error.
 function handleOutside(e) {
+	if (e.target.classList.contains("tab-game-settings")){
+		const tabClass = e.target.dataset.tabclass;
+		
+		// remove active buttons from all tab-buttons:
+		document.querySelectorAll(".tab-button").forEach(el => {
+			el.classList.remove("active");
+		});
+		
+		e.target.classList.add("active");
+		
+		// Hide all tabs
+		document.querySelectorAll(".tab").forEach(el => {
+			el.classList.remove("active");
+		});
 
+		// Show selected tab
+		const activeTab = document.querySelector(".tab." + tabClass);
+		if (activeTab) {
+			activeTab.classList.add("active");
+		}
+	}
+	
+	
 	// If the click started inside, do nothing
 	if (mouseDownInsidePopup) {
 		mouseDownInsidePopup = false;
