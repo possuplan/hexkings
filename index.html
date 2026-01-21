@@ -1153,6 +1153,10 @@ button.redbutton:hover {
 	background-color: black;
 }
 
+.settings-panel.trans {
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
 
 #top-float-ui {
 	display: none;
@@ -18561,6 +18565,18 @@ let mouseDownInsidePopup = false;
 function handleOutside(e) {
 	if (e.target.classList.contains("tab-game-settings")){
 		const tabClass = e.target.dataset.tabclass;
+		
+
+		// make settings popup transparent if on graphics tab and game started:
+		if(tabClass === 'tab-graphics' && gameState.settings.gameStarted){
+			document.querySelectorAll(".settings-panel").forEach(el => {
+				el.classList.add("trans");
+			});
+		}else{
+			document.querySelectorAll(".settings-panel").forEach(el => {
+				el.classList.remove("trans");
+			});
+		}
 		
 		// remove active buttons from all tab-buttons:
 		document.querySelectorAll(".tab-button").forEach(el => {
