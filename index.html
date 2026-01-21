@@ -1734,7 +1734,7 @@ input.disabled {
 					<div class="settings-title">
 						Theme:
 					</div>
-					<select id="map-theme-override">
+					<select id="map-theme-override---">
 						<option value="0">Default</option>
 						<option value="1">Summer</option>
 						<option value="2">Winter</option>
@@ -1862,6 +1862,15 @@ input.disabled {
 						Water
 					</label>
 				</div>
+				
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-gfx-pointers" checked>
+						Onscreen pointers
+					</label>
+				</div>
+				
+				
 			</div>
 			
 			<div class="tab tab-audio">
@@ -1912,6 +1921,11 @@ input.disabled {
 								<option value="1">Summer</option>
 								<option value="2">Winter</option>
 							</select>
+							<select id="map-theme-override" hidden>
+								<option value="0">Default</option>
+								<option value="1">Summer</option>
+								<option value="2">Winter</option>
+							</select>
 						</div>
 					</div>
 				</div>
@@ -1929,7 +1943,22 @@ input.disabled {
 						</select>
 					</div>
 				</div>
+
 				
+				<div class="settings-title">
+					Units:
+				</div>
+				<div>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-use-boats" checked>
+						Boats
+					</label>
+					<label class="inline">
+						<input type="checkbox" id="game-settings-use-landmines" checked>
+						Landmines
+					</label>
+				</div>
+		
 				
 				<br>
 				<div>
@@ -4126,9 +4155,8 @@ let gameState = {
 		startMoneyPerHex: 0,
 		mapTheme: 1, // 1 = summer, 2 = winter
 		editorEnabled: 0,
-	},
-	clientSettings: {
-		mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
+		useBoats: true,
+		useLandmines: true,
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -4158,18 +4186,23 @@ let gameState = {
 };
 
 // changeable render settings, in the settings popup:
-let renderSettings = {
+let gameSettings = {
 	drawShoresShading: true,
 	drawWaterShading: true,
 	drawLandShading: true,
 	drawParticles: true,
 	drawPoolEdges: true,
+	drawPointers: true,
 	drawWater: true,
+	
+	autosave: true,
+	
+	mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
 };
 
-let gameSettings = {
-	autosave: true,
-};
+//clientSettings: {
+//	mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
+//},
 
 
 function resetGameState(){
@@ -4235,8 +4268,8 @@ function getMyPlayer() {
 
 
 function isSummer(){
-	if(gameState.clientSettings.mapThemeOverride){
-		return gameState.clientSettings.mapThemeOverride === 1;
+	if(gameSettings.mapThemeOverride){
+		return gameSettings.mapThemeOverride === 1;
 	}
 	return gameState.settings.mapTheme === 1; // gameState.settings.mapTheme === 'summer'
 }
@@ -4262,10 +4295,10 @@ startMoneyPerHexInput.addEventListener('change', e => {
 // unsynced setting for map theme change for localplayer
 //
 let mapThemeOverrideList = document.getElementById('map-theme-override');
-mapThemeOverrideList.value = gameState.clientSettings.mapThemeOverride;
+mapThemeOverrideList.value = gameSettings.mapThemeOverride;
 
 mapThemeOverrideList.addEventListener('change', e => {
-	gameState.clientSettings.mapThemeOverride = Number(e.target.value);
+	gameSettings.mapThemeOverride = Number(e.target.value);
 	
 	updateSettingsImages();
 });
@@ -4277,6 +4310,64 @@ mapThemeOverrideList.addEventListener('change', e => {
 let mapThemeList = document.getElementById('map-theme');
 mapThemeList.value = gameState.settings.mapTheme;
 
+
+function switchSettings(pageId){
+	if(pageId === 'lobby'){
+		mapThemeOverrideList.hidden = true;
+		mapThemeList.hidden = false;
+	}
+	if(pageId === 'game'){
+		mapThemeOverrideList.hidden = false;
+		mapThemeList.hidden = true;
+	}
+}
+
+
+
+function updateSettingInputValue(id){
+	let setting = settingsElems[id];
+	let refArr = null;
+	let refKey = null;
+	
+	// update input value from the gameState key:
+	if(setting.gameStateKey !== undefined){
+		refArr = gameState.settings;
+		refKey = setting.gameStateKey;
+	}else{
+		refArr = gameSettings;
+		refKey = setting.key;
+	}
+
+	if(setting.type === 'checkbox'){
+		setting.elem.checked = refArr[refKey];
+	}else{
+		setting.elem.value = refArr[refKey];
+	}
+}
+
+
+
+function updateSettingsInputs(){
+	treePercentSlider.value = valueToSlider(gameState.settings.treePercent, treePercentSlider);
+	rockPercentSlider.value = valueToSlider(gameState.settings.rockPercent, rockPercentSlider);
+	minePercentSlider.value = valueToSlider(gameState.settings.minePercent, minePercentSlider);
+	
+	treePercentText.value = percent2Decimals(gameState.settings.treePercent)+"%";
+	rockPercentText.value = percent2Decimals(gameState.settings.rockPercent)+"%";
+	minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
+	
+	gameEndRuleList.value = gameState.settings.gameEndRule;
+	gameEndRuleIngameList.value = gameEndRuleList.value; // copy to ingame settings list.
+	
+	mapThemeList.value = gameState.settings.mapTheme;
+	updateSettingsImages();
+	
+	startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
+	
+	updateSettingInputValue('game-settings-use-boats');
+	updateSettingInputValue('game-settings-use-landmines');
+	
+}
 
 function updateSettingsImages(){
 	document.querySelectorAll('.settings-image').forEach(el => {
@@ -4292,7 +4383,7 @@ mapThemeList.addEventListener('change', e => {
 	
 	updateSettingsImages();
 
-	broadcastLobbyState();
+	broadcastSettings();
 });
 
 
@@ -4306,7 +4397,7 @@ gameEndRuleList.value = gameState.settings.gameEndRule;
 gameEndRuleList.addEventListener('change', e => {
 	gameState.settings.gameEndRule = Number(e.target.value);
 
-	broadcastLobbyState();
+	broadcastSettings();
 });
 
 
@@ -5904,6 +5995,8 @@ function centerAndSelectFirstUnit(selectUnit = true){
 
 
 function showPage(pageId) {
+	switchSettings(pageId);
+	
 	if(pageId === 'game'){
 		randomTrack();
 		if(!musicMuted){
@@ -7932,7 +8025,7 @@ function drawHighlights(){
 						
 					}else{
 						let drawEdges = true;
-						if(!renderSettings.drawPoolEdges && !poolSelected){
+						if(!gameSettings.drawPoolEdges && !poolSelected){
 							drawEdges = false;
 						}
 						if(drawEdges){
@@ -8447,6 +8540,9 @@ const randomRange = (min, max) => randomFunc() * (max - min) + min;
 
 // Creates an explosion with bouncing physics.
 function createExplosion(ep) {
+	if(!gameSettings.drawParticles){
+		return;
+	}
 	let x = ep.x;
 	let y = ep.y;
 	let color = ep.color;
@@ -9126,7 +9222,7 @@ function render() {
 	// Save the context state
 	ctx.save();
 	
-	if(renderSettings.drawWater){
+	if(gameSettings.drawWater){
 		drawInfiniteWater();
 	}else{
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -9153,10 +9249,10 @@ function render() {
 
 	
 	// MAP WATER SHADING (3d effect):
-	if(renderSettings.drawShoresShading && renderSettings.drawWater){
+	if(gameSettings.drawShoresShading && gameSettings.drawWater){
 		drawMapShading(1); // shores
 	}
-	if(renderSettings.drawWaterShading){
+	if(gameSettings.drawWaterShading){
 		drawMapShading(0); // water 3d effect
 	}
 	
@@ -9166,7 +9262,7 @@ function render() {
 	}
 	
 	// MAP LAND SHADING (3d effect):
-	if(renderSettings.drawLandShading){
+	if(gameSettings.drawLandShading){
 		drawMapShading(2); // land shading
 	}
 
@@ -9177,7 +9273,7 @@ function render() {
 	}
 	
 	// draw under objects: cross explosion particles (death by starvation)
-	if(renderSettings.drawParticles){
+	if(gameSettings.drawParticles){
 		renderParticles("crossExplosion");
 	}
 
@@ -9258,7 +9354,7 @@ function render() {
 		drawUnitSelection();
 	}
 	
-	if(renderSettings.drawParticles){
+	if(gameSettings.drawParticles){
 		// explosion particles (default type = exp)
 		renderParticles("exp");
 	}
@@ -9285,7 +9381,9 @@ function render() {
 	
 	
 	// draw dots for unmoved units outside of screen:
-	drawMoveDirectionsOverlay();
+	if(gameSettings.drawPointers){
+		drawMoveDirectionsOverlay();
+	}
 	
 	
 	requestAnimationFrame(render);
@@ -11020,6 +11118,15 @@ function openBuildPopup(type) {
 			}
 		}
 		
+		if(item.type === "boat" && !gameState.settings.useBoats){
+			isDisabled = true;
+			extraInfo = "<br>(Disabled)";
+		}
+		if(item.type === "mine" && !gameState.settings.useLandmines){
+			isDisabled = true;
+			extraInfo = "<br>(Disabled)";
+		}
+		
 		// boats can be built only if an unit was selected:
 		if(item.type === "boat" && !selectedUnit){
 			canAfford = false;
@@ -12259,6 +12366,12 @@ function executeAction(playerId, action) {
 
 			// unitType actually the object name in tile.object. using the other_units unit.name for the tile.object here.
 			const { unitType, q, r, poolHex, unitId } = action;
+			
+			// prevent using disabled units:
+			if(!gameState.settings.useLandmines && isTypeMine(unitType)){
+				return;
+			}
+			
 			console.log("poolHex");
 			console.log(poolHex); // from which pool
 			console.log("q, r");
@@ -12344,6 +12457,13 @@ function executeAction(playerId, action) {
 			//console.log("executeAction action_build");
 			
 			const { unitType, q, r, poolHex, unitId } = action;
+			
+			// prevent using disabled units:
+			if(!gameState.settings.useBoats && isTypeBoat(unitType)){
+				return;
+			}
+			
+			
 			console.log("poolHex");
 			console.log(poolHex); // from which pool
 			console.log("q, r");
@@ -14958,6 +15078,10 @@ function handleHostData(data) {
 		case ACTION.settings_update: {
 			console.warn("settings_update");
 			gameState.settings = data.settings;
+			
+			updateSettingsInputs();
+			
+			updateLobbyUI();
 		}
 		break;
 		case ACTION.lobby_update: {
@@ -14967,6 +15091,9 @@ function handleHostData(data) {
 			gameState.map = data.map;
 			lobbyLoadedMapImg.src = data.map.imageData;
 			
+			
+			updateSettingsInputs();
+			/*
 			treePercentSlider.value = valueToSlider(gameState.settings.treePercent, treePercentSlider);
 			rockPercentSlider.value = valueToSlider(gameState.settings.rockPercent, rockPercentSlider);
 			minePercentSlider.value = valueToSlider(gameState.settings.minePercent, minePercentSlider);
@@ -14982,6 +15109,7 @@ function handleHostData(data) {
 			updateSettingsImages();
 			
 			startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
+			*/
 			
 			updateLobbyUI();
 		}
@@ -16309,6 +16437,8 @@ function updateLobbyUI() {
 
 function broadcastSettings(){
 	if (!localPlayer.isHost) return;
+	
+	updateHostLobbyUI();
 	// Send to all clients
 	broadcast({
 		type: ACTION.settings_update,
@@ -18532,26 +18662,51 @@ document.addEventListener('keyup', (event) => {
 });
 
 
+// for simple settings checkboxes:
+// id = html element id, key = gameSettings key, elem = document.getElementById(id)
+// later maybe allow adding listenerType : "change" etc.
+let settingsElems = {
+	'game-settings-gfx-shading-land':		{key: 'drawLandShading', type: 'checkbox'},
+	'game-settings-gfx-shading-land3d':		{key: 'drawWaterShading', type: 'checkbox'},
+	'game-settings-gfx-shading-shore':		{key: 'drawShoresShading', type: 'checkbox'},
+	'game-settings-gfx-shading-pooledges':	{key: 'drawPoolEdges', type: 'checkbox'},
+	'game-settings-gfx-pointers':			{key: 'drawPointers', type: 'checkbox'},
+	'game-settings-gfx-particles':			{key: 'drawParticles', type: 'checkbox'},
+	'game-settings-gfx-water':				{key: 'drawWater', type: 'checkbox'},
 
+	'game-settings-autosave':				{key: 'autosave', type: 'checkbox'},
 
+	// gamestate settings:
+	'game-settings-use-boats':				{gameStateKey: 'useBoats', type: 'checkbox'},
+	'game-settings-use-landmines':			{gameStateKey: 'useLandmines', type: 'checkbox'},
+};
+// TODO: use settingsElems['game-settings-use-landmines'] etc.. so i can directly call it for inputs updating.
 
-const settings1 = document.getElementById('game-settings-gfx-shading-land');
-const settings2 = document.getElementById('game-settings-gfx-shading-land3d');
-const settings3 = document.getElementById('game-settings-gfx-shading-shore');
-const settings4 = document.getElementById('game-settings-gfx-shading-pooledges');
-const settings5 = document.getElementById('game-settings-gfx-particles');
-const settings6 = document.getElementById('game-settings-gfx-water');
-
-const settings7 = document.getElementById('game-settings-autosave');
-
-
-settings1.addEventListener("click", () => {renderSettings.drawLandShading = settings1.checked;});
-settings2.addEventListener("click", () => {renderSettings.drawWaterShading = settings2.checked;});
-settings3.addEventListener("click", () => {renderSettings.drawShoresShading = settings3.checked;});
-settings4.addEventListener("click", () => {renderSettings.drawPoolEdges = settings4.checked;});
-settings5.addEventListener("click", () => {renderSettings.drawParticles = settings5.checked;});
-settings6.addEventListener("click", () => {renderSettings.drawWater = settings6.checked;});
-settings7.addEventListener("click", () => {gameSettings.autosave = settings7.checked;});
+Object.keys(settingsElems).forEach(id => {
+	let setting = settingsElems[id];
+	setting.elem = document.getElementById(id);
+	// prevent errors if no element found:
+	if (!setting.elem){
+		console.warn("Element id '"+id+"' of settingsElems does not exist!");
+		return;
+	}
+	
+	if(setting.key !== undefined){
+		setting.elem.addEventListener("change", () => {
+			gameSettings[setting.key] = setting.elem.checked;
+		});
+	}
+	if(setting.gameStateKey !== undefined){
+		setting.elem.addEventListener("change", () => {
+			// dont allow changing setting when game has already started:
+			// only allow host to change gameState settings.
+			if(!gameState.settings.gameStarted && localPlayer.isHost){
+				gameState.settings[setting.gameStateKey] = setting.elem.checked;
+				broadcastSettings();
+			}
+		});
+	}
+});
 
 
 
