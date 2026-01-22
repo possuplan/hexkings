@@ -10,11 +10,9 @@
 
 	<title>Hex Kings</title>
 
-	<script async data-id="101499913" src="//static.getclicky.com/js"></script>
-
 	<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-	<script src="config.js"></script> <!-- LOCAL=true on public, false on my pc config -->
+	<script src="config.js"></script> <!-- LOCAL=false on public, true on local pc -->
 
 <script>
 	
@@ -216,7 +214,9 @@ button[disabled] {
 	font-size:27px;
 }
 
-
+.gamebutton.active {
+	background-color:#45723d;
+}
 
 .tab-button {
 	padding:4px;
@@ -1820,6 +1820,25 @@ input.disabled {
 			
 			
 			<div class="tab tab-graphics">
+				
+				<div id="map-theme-override-wrapper">
+					<div class="input-group">
+						<div style="flex: 1;">
+							<div class="settings-title">
+								Theme:
+							</div>
+							<select id="map-theme-override">
+								<option value="0">Default</option>
+								<option value="1">Summer</option>
+								<option value="2">Winter</option>
+							</select>
+						</div>
+						<div style="flex: 1;">
+							
+						</div>
+					</div>
+				</div>
+				
 				<div class="settings-title">
 					Render:
 				</div>
@@ -1918,11 +1937,6 @@ input.disabled {
 								Theme:
 							</div>
 							<select id="map-theme" disabled>
-								<option value="1">Summer</option>
-								<option value="2">Winter</option>
-							</select>
-							<select id="map-theme-override" hidden>
-								<option value="0">Default</option>
 								<option value="1">Summer</option>
 								<option value="2">Winter</option>
 							</select>
@@ -2429,6 +2443,9 @@ const RANDOM_SEED = getRandomSeed();
 console.log("seed = "+RANDOM_SEED);
 
 
+let CURRENT_PAGE = "start";
+let popupOpen = false;
+
 function mulberry32(seed) {
 	return function() {
 		seed |= 0;
@@ -2767,22 +2784,33 @@ const lobbyPreviewTileMsg = document.getElementById("lobby-preview-tile-msg");
 let currentColor = "#FFFFFF";
 
 pickerPopupSelect.addEventListener("click", () => {
-	pickerPopup.style.display = "none";
+	closeColorPicker();
 	let color = currentColor;
 	let textColor = getPlayerTextColor(color);
 	updatePlayerColor(color, textColor);
-	if(localPlayer.isHost){
+	if(isHost()){
 		updateHostPreviewTile(color);
 	}else{
 		updateLobbyPreviewTile(color);
 	}
 });
+
+
 pickerPopupCancel.addEventListener("click", () => {
-	pickerPopup.style.display = "none";
+	closeColorPicker();
 });
 
 
+function closeColorPicker(){
+	removePopupState(pickerPopup);
+	
+	pickerPopup.style.display = "none";
+}
+
+
 function launchColorPicker(){
+	addPopupState(pickerPopup);
+	
 	let color = hexToRgb(getMyPlayer().color);
 	let hsl = rgbToHsl(color[0], color[1], color[2]);
 	hue = hsl.h;
@@ -2854,21 +2882,42 @@ const loadMapBtn = document.getElementById('load-map-btn');
 const loadGameBtn = document.getElementById('load-game-btn');
 
 
-// Show popup on click
-loadedMapImg.addEventListener('click', () => {
-	popupImg.src = loadedMapImg.src;
+function openMapPreviewPopup(){
+	
+	addPopupState(imagePopup);
+	
+	console.warn("openMapPreviewPopup");
+	
 	imagePopup.classList.add('active');
+}
+
+function closeMapPreviewPopup(){
+	//console.warn("popupopen: ", popupOpen);
+	removePopupState(imagePopup);
+	
+	imagePopup.classList.remove('active');
+}
+
+// Show popup on click
+loadedMapImg.addEventListener('click', (e) => {
+	e.preventDefault();
+	console.warn("popupopen: ", popupOpen);
+	popupImg.src = loadedMapImg.src;
+	openMapPreviewPopup();
+	console.warn("popupopen: ", popupOpen);
 });
 
 // Show popup on click
-lobbyLoadedMapImg.addEventListener('click', () => {
+lobbyLoadedMapImg.addEventListener('click', (e) => {
+	e.preventDefault();
 	popupImg.src = lobbyLoadedMapImg.src;
-	imagePopup.classList.add('active');
+	openMapPreviewPopup();
 });
 
 // Hide popup on click
 imagePopup.addEventListener('click', (e) => {
-	imagePopup.classList.remove('active');
+	e.preventDefault();
+	closeMapPreviewPopup();
 });
 
 
@@ -2918,11 +2967,15 @@ closeBtn.addEventListener('click', closePopup);
 });
 
 function closePopup() {
+	removePopupState(popup);
+	
 	popupOverlay.style.display = 'none';
 }
 
 // Render map list
 async function renderMapList(category) {
+	addPopupState(popup);
+	
 	mapList.innerHTML = '';
 	
 	if(category !== 'custom'){
@@ -2972,6 +3025,8 @@ loadGameBtn.addEventListener('click', async () => {
 		let savedGames = await getAllSavedGames();
 		
 		renderSavedGamesList(savedGames);
+		
+		
 	}
 });
 
@@ -2983,11 +3038,15 @@ savedGamesPopupOverlay.addEventListener('click', (e) => {
 });
 
 function closeSavedGamesPopup() {
+	removePopupState(savedGamesPopup);
+	
 	savedGamesPopupOverlay.style.display = 'none';
 }
 
 // Render map list
 function renderSavedGamesList(savedGames) {
+	addPopupState(savedGamesPopup);
+	
 	savedGamesList.innerHTML = '';
 
 	for(let i = 0; i < savedGames.length; i++){
@@ -4124,7 +4183,13 @@ let localPlayer = {
 	undoCounter: 0, // will be updated in undo_counter message and used to determine if there are any undoing left.
 };
 
+function gameStarted(){
+	return gameState.settings.gameStarted;
+}
 
+function isHost(){
+	return localPlayer.isHost;
+}
 
 
 let localPlayerPools = []; // economy pools for local player.
@@ -4136,6 +4201,8 @@ let loadedGameStateInitial = null;
 // rule constants:
 const ENDRULE_NO_SOLDIERS_NO_MONEY = 0;
 const ENDRULE_NO_SOLDIERS = 1;
+
+
 
 // --- GAME STATE (synced by host) ---
 let gameState = {
@@ -4199,6 +4266,8 @@ let gameSettings = {
 	
 	mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
 };
+
+
 
 //clientSettings: {
 //	mapThemeOverride: 0, // 0 = no override, 1 = summer, 2 = winter
@@ -4287,7 +4356,7 @@ startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
 
 startMoneyPerHexInput.addEventListener('change', e => {
 	gameState.settings.startMoneyPerHex = Number(e.target.value);
-	broadcastLobbyState();
+	broadcastSettings();
 });
 
 
@@ -4295,6 +4364,9 @@ startMoneyPerHexInput.addEventListener('change', e => {
 // unsynced setting for map theme change for localplayer
 //
 let mapThemeOverrideList = document.getElementById('map-theme-override');
+let mapThemeOverrideWrapper = document.getElementById('map-theme-override-wrapper');
+
+
 mapThemeOverrideList.value = gameSettings.mapThemeOverride;
 
 mapThemeOverrideList.addEventListener('change', e => {
@@ -4311,15 +4383,45 @@ let mapThemeList = document.getElementById('map-theme');
 mapThemeList.value = gameState.settings.mapTheme;
 
 
+function isStartPage(pageId){
+	return pageId === "host" || pageId === "lobby";
+}
+
 function switchSettings(pageId){
+	console.warn("switchSettings: "+pageId);
+	
+	if(isStartPage(pageId)){
+		mapThemeOverrideWrapper.style.display = "none";
+		console.warn("pThemeOverrideWrapper.style.display ");
+		mapThemeList.disabled = false;
+		
+		// hide ingame buttons:
+		document.querySelectorAll(".ingame-class").forEach(el => {
+			el.classList.add("hidden");
+		});
+		
+		// enable all settings inputs in game tab:
+		document.querySelectorAll('.tab-game input, .tab-game select, .tab-game range').forEach(el => el.disabled = false);
+	}
 	if(pageId === 'lobby'){
-		mapThemeOverrideList.hidden = true;
-		mapThemeList.hidden = false;
+		
+		// disable all settings inputs in game tab:
+		document.querySelectorAll('.tab-game input, .tab-game select, .tab-game range').forEach(el => el.disabled = true);
 	}
+	
 	if(pageId === 'game'){
-		mapThemeOverrideList.hidden = false;
-		mapThemeList.hidden = true;
+		mapThemeOverrideWrapper.style.display = "block";
+		mapThemeList.disabled = true;
+		
+		// show ingame buttons:
+		document.querySelectorAll(".ingame-class").forEach(el => {
+			el.classList.remove("hidden");
+		});
+		
+		// disable all settings inputs in game tab:
+		document.querySelectorAll('.tab-game input, .tab-game select, .tab-game range').forEach(el => el.disabled = true);
 	}
+	
 }
 
 
@@ -5576,6 +5678,11 @@ gameSettingsBtn2.addEventListener("click", (e) => {
 	openGameSettings();
 	hideConfirmationView();
 });
+gameSettingsBtn2.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
+gameSettingsBtn2.tabIndex = -1; //remove it from the tab order
+
+	
+	
 lobbyGameSettingsBtn.addEventListener("click", (e) => {
 	e.stopPropagation(); // needed or it will close the popup instantly due to check of handleOutside()
 	openGameSettings();
@@ -5602,11 +5709,16 @@ lobbyGameSettingsBtn.addEventListener("click", (e) => {
 	
 */
 
+
 function openGameSettings(){
 	gameSettingsUi.style.display = "flex";
+	
+	addPopupState(gameSettingsUi);
 }
 function closeGameSettings(){
 	gameSettingsUi.style.display = "none";
+	
+	removePopupState(gameSettingsUi);
 }
 
 closeGameSettingsBtn.addEventListener("click", () => {
@@ -5825,7 +5937,7 @@ const addAiBtn = document.getElementById('add-ai-btn');
 let ai_counter = 1;
 
 addAiBtn.addEventListener('click', () => {
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 
 	let randomStr = getUID(5); // add short random id so the total length is 10 at minimum.
 	const aiPlayer = {
@@ -5994,7 +6106,11 @@ function centerAndSelectFirstUnit(selectUnit = true){
 }
 
 
+
 function showPage(pageId) {
+	CURRENT_PAGE = pageId;
+	
+	// change settings popup depending on page:
 	switchSettings(pageId);
 	
 	if(pageId === 'game'){
@@ -6002,15 +6118,8 @@ function showPage(pageId) {
 		if(!musicMuted){
 			playMusic();
 		}
-		document.querySelectorAll(".ingame-class").forEach(el => {
-			el.classList.remove("hidden");
-		});
 	}
-	if(pageId === 'lobby'){
-		document.querySelectorAll(".ingame-class").forEach(el => {
-			el.classList.add("hidden");
-		});
-	}
+
 	Object.values(pages).forEach(page => page.classList.remove('active'));
 	if (pages[pageId]) {
 		pages[pageId].classList.add('active');
@@ -6036,7 +6145,7 @@ function showPage(pageId) {
 
 // MUST use playerId here 
 function sendToPlayer(playerId, data) {
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	
 	if (playerId === localPlayer.id) {
 		// It's the host, handle directly
@@ -6048,7 +6157,7 @@ function sendToPlayer(playerId, data) {
 
 
 function sendToHost(data) {
-	if (localPlayer.isHost) {
+	if (isHost()) {
 		// Host handles its own actions directly
 		handleClientData(localPlayer.id, data);
 	} else if (hostPeerId && connections.has(hostPeerId)) {
@@ -6061,7 +6170,7 @@ let isAiBatching = false;
 let aiBatchBuffer = [];
 
 function broadcast(data, everyone = true) {
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 
 	// 1. ALWAYS process locally immediately.
 	// This updates the Host's gameState, allowing the AI to 'see' the result 
@@ -6084,8 +6193,13 @@ function broadcast(data, everyone = true) {
 
 
 
-function toggleSettings(){
-	if(settingsUi.style.display === 'flex'){
+function toggleSettings(setState = -1){
+	let hidePopup = (settingsUi.style.display === 'flex');
+	if(setState !== -1){
+		hidePopup = (setState === 0);
+	}
+	
+	if(hidePopup){
 		settingsUi.style.opacity = '1';
 		settingsUi.style.display = 'none';
 	}else{
@@ -9194,7 +9308,7 @@ let drawAllTiles = true;
 
 
 function render() {
-	if (!gameState.settings.gameStarted) return;
+	if (!gameStarted()) return;
 	
 	trackFPS();
 
@@ -9772,7 +9886,7 @@ function getUnitAt(q, r) {
 
 
 function getCurrentTurnPlayer() {
-	if (!gameState.settings.gameStarted) return null;
+	if (!gameStarted()) return null;
 	return gameState.players[gameState.turn.currentPlayerIndex];
 }
 
@@ -9800,7 +9914,7 @@ function hasUnmovedUnits(){
 
 // updateui update ui
 function updateGameUI() {
-	if (!gameState.settings.gameStarted) return;
+	if (!gameStarted()) return;
 	
 	const myPlayer = getMyPlayer();
 	const currentTurnPlayer = getCurrentTurnPlayer();
@@ -11640,7 +11754,7 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	let actionPool;
 
 	
-	if(localPlayer.isHost){
+	if(isHost()){
 		// weird, before this worked fine with clients too, now only host can use this.
 		actionPool = findSelectedPool(poolHex, findEconomyPools(player.playerIndex, log_enabled), player.playerIndex);
 	}else{
@@ -11845,7 +11959,7 @@ function actionAllowedForEveryone(action){
 function executeAction(playerId, action) {
 	console.log("executeAction", action);
 
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	//console.log("executeAction 2");
 	
 	const player = getPlayer(playerId);
@@ -13745,7 +13859,7 @@ const yieldToMainThread = () => new Promise(resolve => setTimeout(resolve, 0));
 
 // 2. Mark function as ASYNC
 async function executeAIMoveSequentially(player) {
-    if (!localPlayer.isHost || gameState.settings.gameOver) return;
+    if (!isHost() || gameState.settings.gameOver) return;
 
     const currentPlayer = gameState.players[gameState.turn.currentPlayerIndex];
     if (!currentPlayer || currentPlayer.id !== player.id || !currentPlayer.isAI) {
@@ -13816,7 +13930,7 @@ async function executeAIMoveSequentially(player) {
 
 
 function executeAIMoveSequentially1(player) {
-	if (!localPlayer.isHost || gameState.settings.gameOver) return;
+	if (!isHost() || gameState.settings.gameOver) return;
 
 	// Double-check if it's still this AI's turn
 	const currentPlayer = gameState.players[gameState.turn.currentPlayerIndex];
@@ -13881,7 +13995,7 @@ function executeAIMoveSequentially1(player) {
 function checkForAITurn(){
 	//console.log("checkForAITurn");
 	// Only the host should control the AI
-	if (!localPlayer.isHost || gameState.settings.gameOver) return;
+	if (!isHost() || gameState.settings.gameOver) return;
 	
 	//console.log("checkForAITurn 2");
 
@@ -14952,7 +15066,7 @@ function handleHostData(data) {
 		break;
 		case ACTION.check_balance: {
 			// called at the very last after action_move/action_build messages have been processed.
-			if(localPlayer.isHost){
+			if(isHost()){
 				console.warn("handleHostData: check_balance");
 				// checkPlayers
 				console.warn(data.checkPlayers);
@@ -15044,7 +15158,7 @@ function handleHostData(data) {
 
 			centerFirstUnit();
 			
-			if(localPlayer.isHost){
+			if(isHost()){
 				replayHistory(NETWORK_HISTORY);
 			}
 			
@@ -15077,11 +15191,13 @@ function handleHostData(data) {
 		break;
 		case ACTION.settings_update: {
 			console.warn("settings_update");
-			gameState.settings = data.settings;
-			
-			updateSettingsInputs();
-			
-			updateLobbyUI();
+			if(!gameStarted()){
+				gameState.settings = data.settings;
+				
+				updateSettingsInputs();
+				
+				updateLobbyUI();
+			}
 		}
 		break;
 		case ACTION.lobby_update: {
@@ -15609,7 +15725,7 @@ function handleClientData(peerId, data) {
 		case ACTION.join:
 			player.name = data.name;
 			
-			if (!gameState.settings.gameStarted) {
+			if (!gameStarted()) {
 				let colors = getNextFreeColors();
 				player.color = colors.color;
 				player.textColor = colors.textColor;
@@ -15633,7 +15749,7 @@ function handleClientData(peerId, data) {
 			}
 			broadcastLobbyState();
 			
-			if(gameState.settings.gameStarted){
+			if(gameStarted()){
 				addSystemChatMessage(`${player.name} has joined${specflag}.`, "#AAAAFF");
 			}else{
 				broadcast({
@@ -15700,7 +15816,7 @@ function handleClientData(peerId, data) {
 		case ACTION.action_unload_unit:
 		case ACTION.action_edit_tile:
 			//console.log("handleClientData executeAction "+data.type);
-			if (gameState.settings.gameStarted) {
+			if (gameStarted()) {
 				executeAction(peerId, data);
 			}
 			break;
@@ -15792,7 +15908,7 @@ function setupConnection(conn) {
 		//connections.set(conn.peer, conn);
 
 		// If we are host, add new player and send lobby state
-		if (localPlayer.isHost) {
+		if (isHost()) {
 			// HOST only, handle incoming joinings
 			
 			const newPlayer = {
@@ -15808,7 +15924,7 @@ function setupConnection(conn) {
 			addPlayer(newPlayer);
 			
 			
-			if (gameState.settings.gameStarted) {
+			if (gameStarted()) {
 				// Send full game state to new player (who will join as spec)
 				conn.send({ 
 					type: ACTION.full_state, 
@@ -15828,7 +15944,7 @@ function setupConnection(conn) {
 	
 	
 	conn.on('data', (data) => {
-		if (localPlayer.isHost) {
+		if (isHost()) {
 			handleClientData(conn.peer, data);
 		} else {
 			handleHostData(data);
@@ -15838,14 +15954,14 @@ function setupConnection(conn) {
 	conn.on('close', () => {
 		console.log(`Connection closed with ${conn.peer}`);
 		connections.delete(conn.peer);
-		if (localPlayer.isHost) {
+		if (isHost()) {
 			const player = getPlayer(conn.peer);
 			if (player) {
 				let specflag = player.isSpectator ? " (spectator)" : "";
 				//addSystemChatMessage(`&gt; ${player.name}${specflag} has left.`, "#FFFF00");
 				//gameState.players = gameState.players.filter(p => p.id !== conn.peer);
 				
-				if (gameState.settings.gameStarted) {
+				if (gameStarted()) {
 					
 					addSystemChatMessage(`>>> ${player.name}${specflag} has left.`, "#FFFF00");
 					// set quitted player as AI:
@@ -16436,7 +16552,7 @@ function updateLobbyUI() {
 
 
 function broadcastSettings(){
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	
 	updateHostLobbyUI();
 	// Send to all clients
@@ -16448,7 +16564,7 @@ function broadcastSettings(){
 
 
 function broadcastLobbyState(settings = gameState.settings, players = gameState.players, map = gameState.map) {
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	// Update host's own UI
 	updateHostLobbyUI();
 	// Send to all clients
@@ -16461,7 +16577,7 @@ function broadcastLobbyState(settings = gameState.settings, players = gameState.
 }
 
 function broadcastMapState() {
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	// Update host's own UI
 	updateHostLobbyUI();
 	// Send to all clients
@@ -18249,7 +18365,7 @@ function deepClone(obj) {
 
 async function startReplay(){
 	
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	
 	
 	console.log("Starting replay...");
@@ -18362,7 +18478,7 @@ function rebuildTileLinks(){
 function startGame() {
 	
 
-	if (!localPlayer.isHost) return;
+	if (!isHost()) return;
 	
 	// clear network history.
 	NETWORK_HISTORY = [];
@@ -18623,7 +18739,7 @@ document.addEventListener('keydown', (event) => {
 		const key = event.key;
 		const code = event.code;
 
-		if(gameState.settings.gameStarted){
+		if(gameStarted()){
 			if (key === 'Enter') { // event.key matches enter and numpad enter.
 				toggleUiTopLeft();
 			}else if(code === 'KeyQ') {
@@ -18700,7 +18816,7 @@ Object.keys(settingsElems).forEach(id => {
 		setting.elem.addEventListener("change", () => {
 			// dont allow changing setting when game has already started:
 			// only allow host to change gameState settings.
-			if(!gameState.settings.gameStarted && localPlayer.isHost){
+			if(!gameStarted() && isHost()){
 				gameState.settings[setting.gameStateKey] = setting.elem.checked;
 				broadcastSettings();
 			}
@@ -18723,7 +18839,7 @@ function handleOutside(e) {
 		
 
 		// make settings popup transparent if on graphics tab and game started:
-		if(tabClass === 'tab-graphics' && gameState.settings.gameStarted){
+		if(tabClass === 'tab-graphics' && gameStarted()){
 			document.querySelectorAll(".settings-panel").forEach(el => {
 				el.classList.add("trans");
 			});
@@ -18762,7 +18878,7 @@ function handleOutside(e) {
 
 	// Picker popup
 	if (!pickerWrapper.contains(e.target)) {
-		pickerPopup.style.display = "none";
+		closeColorPicker();
 	}
 
 	// Game settings
@@ -18856,6 +18972,8 @@ window.addEventListener('unload', () => {
 });
 */
 
+
+/*
 // Prevent accidental back navigation
 function preventBackNavigation() {
 	history.pushState(null, '', location.href);
@@ -18873,9 +18991,62 @@ function preventBackNavigation() {
 			history.pushState(null, '', location.href);
 		}
 	});
+}*/
+
+// Prevent accidental back navigation and handle settings popup
+function preventBackNavigation() {
+
+	// Base state
+	history.pushState(null, '', location.href);
+	//history.replaceState({ state: 'game' }, '', location.href);
+
+	window.addEventListener('popstate', function handler() {
+
+		if (popupOpen) {
+			closeGameSettings();
+			closeSavedGamesPopup();
+			closePopup();
+			closeColorPicker();
+			closeMapPreviewPopup();
+			//toggleSettings(0); // cant close chatbox since you might have game settings open.
+			popupOpen = false;
+			history.replaceState({ state: 'game' }, '', location.href);
+			return;
+		}
+		
+
+
+		const leave = confirm('Are you sure you want to quit the game?');
+
+		if (leave) {
+			window.removeEventListener('popstate', handler);
+			restartGame();
+		} else {
+			history.replaceState({ state: 'game' }, '', location.href);
+		}
+	});
 }
 
+
 preventBackNavigation();
+
+
+function addPopupState(elem){
+	//console.warn("addPopupState");
+	if (popupOpen){
+		console.warn("addPopupState: popup was already open");
+		return;
+	}
+	popupOpen = true;
+	//elem.classList.add('open');
+	history.pushState({ screen: 'popup' }, '', location.href);
+}
+
+function removePopupState(elem, screen){
+	//console.warn("removePopupState");
+	//popupOpen = false; // cant set it here or every close call would remove it so the addpopupstate wont work.
+	//elem.classList.remove('open');
+}
 
 
 
@@ -19269,25 +19440,31 @@ window.addEventListener('DOMContentLoaded', async () => {
 	}
 
 	startMoneyInput.onchange = () => {
-		gameState.settings.startingMoney = getUint(startMoneyInput.value);
-		startMoneyInput.value = gameState.settings.startingMoney;
-		broadcastLobbyState();
+		if(!gameStarted() && isHost()){
+			gameState.settings.startingMoney = getUint(startMoneyInput.value);
+			startMoneyInput.value = gameState.settings.startingMoney;
+			broadcastSettings();
+		}
 	};
 
 	mapScale.onchange = () => {
-		gameState.settings.mapScale = getMapScale();
-		mapScale.value = gameState.settings.mapScale;
-		broadcastLobbyState();
-		setLoadedMapAndApplyScale();
+		if(!gameStarted() && isHost()){
+			gameState.settings.mapScale = getMapScale();
+			mapScale.value = gameState.settings.mapScale;
+			broadcastLobbyState();
+			setLoadedMapAndApplyScale();
+		}
 	}
 	
 	spectateHostBtn.onclick = () => {
-		localPlayer.isSpectator = !localPlayer.isSpectator;
-		let colors = getNextFreeColors();
-		localPlayer.color = localPlayer.isSpectator ? SPECTATOR_COLOR : colors.color;
-		localPlayer.textColor = localPlayer.isSpectator ? SPECTATOR_COLOR : colors.textColor;
-		spectateHostBtn.classList.toggle('active', localPlayer.isSpectator);
-		broadcastLobbyState();
+		if(!gameStarted() && isHost()){
+			localPlayer.isSpectator = !localPlayer.isSpectator;
+			let colors = getNextFreeColors();
+			localPlayer.color = localPlayer.isSpectator ? SPECTATOR_COLOR : colors.color;
+			localPlayer.textColor = localPlayer.isSpectator ? SPECTATOR_COLOR : colors.textColor;
+			spectateHostBtn.classList.toggle('active', localPlayer.isSpectator);
+			broadcastLobbyState();
+		}
 	};
 
 	startGameBtn.onclick = startGame;
@@ -19509,7 +19686,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 						refreshCanvas();
 					break;
 					case "/editor":
-						if(localPlayer.isHost){
+						if(isHost()){
 							//EDITOR_ENABLED = !EDITOR_ENABLED;
 							gameState.settings.editorEnabled = !gameState.settings.editorEnabled;
 							broadcastSettings();
