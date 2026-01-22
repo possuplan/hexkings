@@ -1012,79 +1012,11 @@ button.redbutton:hover {
 	display: flex;
 }
 
-/*
-
-#game-settings-ui {
-	display: none;
-	flex-direction: column;
-	padding-left: 4px;
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	max-width: 400px;
-	font-size: 18px;
-	line-height: 20px;    
-	----height: calc(3 * 20px);  
-	pointer-events: none;
-	overflow-wrap: anywhere;
-	z-index: 9999;
-	background-color:black;
-	
-    min-height: 300px;
-	
-	border-radius:8px;
-}
-
-*/
 
 
-/*
-#settings-ui {
-	display: none;
-	flex-direction: column;
-	padding-left: 4px;
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 200px;
-	font-size: 18px;
-	line-height: 20px;     
-	----height: calc(3 * 20px);  
-	pointer-events: none;
-	overflow-wrap: anywhere;
-	z-index: 9999;
-	background-color:black;
-	
-    min-height: 300px;
-	
-	border-radius:8px;
-}*/
 
 
-#settings-ui-wrapper {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	width:100%;
-}
 
-/* Popup container */
-#settings-ui {
-	position: fixed;
-	inset: 0;
-	display: none;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	background: rgba(0, 0, 0, 0.7);
-	z-index: 9999;
-}
-
-/* Visible state */
-#settings-ui.active {
-	display: flex;
-}
 
 
 
@@ -1132,11 +1064,7 @@ button.redbutton:hover {
 	padding:0;
 }
 
-#close-settings-btn {
-    padding-bottom: 10px;
-    line-height: 30px;
-	font-size:36px;
-}
+
 
 #close-game-settings-btn {
     padding-bottom: 10px;
@@ -1630,7 +1558,8 @@ input.disabled {
 				<button class="popup-close" id="popup-close">&times;</button>
 			</div>
 			<div class="category-tabs">
-				<button class="category-btn active" data-category="small">Small</button>
+				<button class="category-btn active" data-category="all">All</button>
+				<button class="category-btn" data-category="small">Small</button>
 				<button class="category-btn" data-category="normal">Normal</button>
 				<button class="category-btn" data-category="custom">Custom</button>
 			</div>
@@ -1687,81 +1616,6 @@ input.disabled {
 </div>
 
 
-<!-- ingame settings -->
-<div id="settings-ui">
-	<div id="settings-ui-wrapper">
-		<div id="settings-ui-wrapper2" class="ui-menu ui-panel settings-panel">
-			<div class="input-group">
-				<div style="flex: 4; padding: 10px 0 10px 0; font-size: 20px; font-weight:bold">
-					Settings
-				</div>
-				<div style="flex: 2;">
-					<button id="quit-game-btn2" class="gamebutton redbutton">Quit game</button>
-				</div>
-				<div style="flex: 1;">
-					<button id="close-settings-btn" class="gamebutton largefont">×</button>
-				</div>
-			</div>
-			
-
-			
-			Music:
-			<div class="music-volume-wrapper">
-				<div class="input-group-nogap" style="align-items: center; gap:5px">
-					<div class="settings-musicplayer-elem">
-						<button id="music-pause-btn" class="music-pause-btn gamebutton"></button>
-						<button id="music-play-btn" class="music-play-btn gamebutton" style="display:none"></button>
-					</div>
-					<div class="settings-musicplayer-elem">
-						<button id="music-mute-btn" class="music-mute-btn gamebutton" title="Mute"></button>
-						<button id="music-unmute-btn" class="music-unmute-btn gamebutton" title="Unmute" style="display:none"></button>
-					</div>
-					<div class="settings-musicplayer-elem">
-						<button id="music-previous-btn" class="music-previous-btn gamebutton"></button>
-					</div>
-					<div style="flex: 1;">
-						<input type="range" id="music-volume" min="0" max="200" value="1">
-					</div>
-					<div class="settings-musicplayer-elem">
-						<button id="music-next-btn" class="music-next-btn gamebutton"></button>
-					</div>
-				</div>
-			</div>
-	
-			
-			<div class="input-group">
-				<div style="flex: 1;">
-					<div class="settings-title">
-						Theme:
-					</div>
-					<select id="map-theme-override---">
-						<option value="0">Default</option>
-						<option value="1">Summer</option>
-						<option value="2">Winter</option>
-					</select>
-				</div>
-				<div style="flex: 1;">
-					
-				</div>
-			</div>
-			<br>
-			<div>
-				<div class="settings-title">
-					Game end rule:
-				</div>
-				<div class="input-group">
-					<select id="game-end-rule-ingame" disabled>
-						<option value="0">Lose all warriors & Cannot buy anything</option>
-						<option value="1">Lose all warriors</option>
-					</select>
-				</div>
-			</div>
-			
-
-			
-		</div>
-	</div>
-</div>
 
 
 <!-- lobby settings -->
@@ -1808,7 +1662,7 @@ input.disabled {
 			
 			<div class="tab tab-other">
 				<div class="settings-title">
-					Autosave:
+					Autosave (at end of day):
 				</div>
 				<div>
 					<label class="inline">
@@ -2925,7 +2779,6 @@ imagePopup.addEventListener('click', (e) => {
 
 const mapScale = document.getElementById('map-scale');
 
-let currentCategory = 'small';
 
 
 
@@ -3248,7 +3101,7 @@ const musicPlaylist = [
 let musicMuted = getLocalStorageItem("musicMuted") === "true";
 
 
-let musicVolumeInput = document.getElementById('music-volume');
+
 let musicVolumeInput2 = document.getElementById('music-volume2');
 
 let currentTrackIndex = random(0, musicPlaylist.length-1);
@@ -3260,7 +3113,6 @@ let musicVolumePower = 2.5; // power curve
 
 let currentMusicVolume = defaultMusicVolume;
 
-musicVolumeInput.value = volumeToSlider(defaultMusicVolume, musicVolumeInput);
 musicVolumeInput2.value = volumeToSlider(defaultMusicVolume, musicVolumeInput2);
 
 
@@ -3293,17 +3145,9 @@ function sliderToValue(slider) {
 
 
 
-musicVolumeInput.addEventListener('input', e => {
-	let adjustedValue = sliderToVolume(e.target);
-	setMusicVolume(adjustedValue);
-	
-	musicVolumeInput2.value = e.target.value;
-});
 musicVolumeInput2.addEventListener('input', e => {
 	let adjustedValue = sliderToVolume(e.target);
 	setMusicVolume(adjustedValue);
-	
-	musicVolumeInput.value = e.target.value;
 });
 
 
@@ -3315,7 +3159,6 @@ function playMusic() {
 		audio.volume = currentMusicVolume;
 		audio.preload = 'auto';
 		
-		musicVolumeInput.value = volumeToSlider(audio.volume, musicVolumeInput);
 		musicVolumeInput2.value = volumeToSlider(audio.volume, musicVolumeInput2);
 		
 		audio.addEventListener('ended', playNextTrack);
@@ -3777,6 +3620,7 @@ const ACTION = {
 	'unit_load_reset': 122,		// ACTION.unit_load_reset
 	'tile_edited': 123,			// ACTION.tile_edited
 	'settings_update': 124,		// ACTION.settings_update
+	'player_changed': 125,		// ACTION.player_changed
 
 	// handleClientData: (host receives these)
 	'pong': 200, 				// ACTION.pong
@@ -4181,6 +4025,8 @@ let localPlayer = {
 	quitted: false, // true if player intentionally quitted the game.
 	isAI: false,
 	undoCounter: 0, // will be updated in undo_counter message and used to determine if there are any undoing left.
+	totalMines: 0, // how many mines can be built atm. will be set at startGame()
+	totalBoats: 0, // how many boats can be built atm. will be set at startGame()
 };
 
 function gameStarted(){
@@ -4224,6 +4070,8 @@ let gameState = {
 		editorEnabled: 0,
 		useBoats: true,
 		useLandmines: true,
+		initialMines: 4, // how many mines can be built at the start of game
+		initialBoats: 4, // how many boats can be built at the start of game
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -4459,7 +4307,6 @@ function updateSettingsInputs(){
 	minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
 	
 	gameEndRuleList.value = gameState.settings.gameEndRule;
-	gameEndRuleIngameList.value = gameEndRuleList.value; // copy to ingame settings list.
 	
 	mapThemeList.value = gameState.settings.mapTheme;
 	updateSettingsImages();
@@ -4489,8 +4336,6 @@ mapThemeList.addEventListener('change', e => {
 });
 
 
-let gameEndRuleIngameList = document.getElementById('game-end-rule-ingame');
-gameEndRuleIngameList.value = gameState.settings.gameEndRule;
 
 
 let gameEndRuleList = document.getElementById('game-end-rule');
@@ -4521,16 +4366,7 @@ rockPercentText.value = percent2Decimals(gameState.settings.rockPercent)+"%";
 minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
 
 
-/*
-musicVolumeInput2.value = valueToSlider(defaultMusicVolume, musicVolumeInput2);
 
-musicVolumeInput.addEventListener('input', e => {
-	let adjustedValue = sliderToValue(e.target);
-	setMusicVolume(adjustedValue);
-	
-	musicVolumeInput2.value = e.target.value;
-});
-*/
 
 function percent2Decimals(val){
 	return (Math.round(val*10000)/100);
@@ -4587,6 +4423,13 @@ let focusedHex = null;
 let selectedUnit = null;
 let placingUnit = null; // e.g., { type: 'Peasant', cost: 100 }
 let currentTurnActions = []; // For undo
+let actionForUndo = null;
+
+// prevents further undo after called.
+function preventUndo(){
+	actionForUndo = null;
+	currentTurnActions = [];
+}
 
 function deselectHex(){
 	//console.log("deselectHex");
@@ -5605,13 +5448,13 @@ const buildPopupClose = document.getElementById('build-popup-close');
 
 const toggleUiBtn = document.getElementById('toggle-ui-btn');
 const quitGameBtn = document.getElementById('quit-game-btn');
-const quitGameBtn2 = document.getElementById('quit-game-btn2');
+
 const saveGameBtn = document.getElementById('save-game-btn');
 
 //const settingsBtn = document.getElementById('settings-btn');
 const quickSettingsBtn = document.getElementById('quick-settings-btn');
 
-const closeSettingsBtn = document.getElementById('close-settings-btn');
+
 const settingsUi = document.getElementById('settings-ui');
 
 
@@ -5621,7 +5464,6 @@ const gameSettingsBtn2 = document.getElementById('game-settings-btn2');
 const closeGameSettingsBtn = document.getElementById('close-game-settings-btn');
 const gameSettingsUi = document.getElementById('game-settings-ui');
 const gameSettingsUiWrapper2 = document.getElementById('game-settings-ui-wrapper2');
-const settingsUiWrapper2 = document.getElementById('settings-ui-wrapper2');
 
 
 const lobbyGameSettingsBtn = document.getElementById('lobby-game-settings-btn');
@@ -5690,27 +5532,12 @@ lobbyGameSettingsBtn.addEventListener("click", (e) => {
 });
 
 
-/*
-	settingsBtn.onclick = () => {
-		console.log("settingsBtn clicked");
-		toggleSettings();
-	};
-	settingsBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	settingsBtn.tabIndex = -1; //remove it from the tab order
-	
-	
-		
-	closeSettingsBtn.onclick = () => {
-		toggleSettings();
-	};
-	closeSettingsBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	closeSettingsBtn.tabIndex = -1; //remove it from the tab order
-	
-	
-*/
 
 
 function openGameSettings(){
+	// unfocus chatinput:
+	chatInput.blur();
+	
 	gameSettingsUi.style.display = "flex";
 	
 	addPopupState(gameSettingsUi);
@@ -5741,16 +5568,7 @@ quickSettingsBtn.addEventListener("click", (e) => {
 	toggleSettings();
 });
 
-/*
-settingsBtn.addEventListener("click", (e) => {
-	e.stopPropagation(); // needed or it will close the popup instantly due to check of handleOutside()
-	toggleSettings();
-});
-*/
 
-closeSettingsBtn.addEventListener("click", () => {
-	toggleSettings();
-});
 
 
 const moveConfirmationPopup = document.getElementById('move-confirmation-popup');
@@ -5783,12 +5601,6 @@ moveConfirmationButton.addEventListener("click", () => {
 
 
 
-const musicPauseBtn = document.getElementById('music-pause-btn');
-const musicPlayBtn = document.getElementById('music-play-btn');
-const musicNextBtn = document.getElementById('music-next-btn');
-const musicPreviousBtn = document.getElementById('music-previous-btn');
-const musicMuteBtn = document.getElementById('music-mute-btn');
-const musicUnmuteBtn = document.getElementById('music-unmute-btn');
 
 const musicPauseBtn2 = document.getElementById('music-pause-btn2');
 const musicPlayBtn2 = document.getElementById('music-play-btn2');
@@ -7601,6 +7413,8 @@ function drawMapShading(type){
 				}else{
 					//color = hexToRgba(darkenHexColor("#705F4B", 0.8), 0.8);
 					color = "#16181C";
+					//       #16181C blueish dark brown seems best, darker brown pops up too much.
+					//       #18140C dark brown
 				}
 				
 				if(type === 0){ // water 3d
@@ -8557,7 +8371,6 @@ function drawPlacementHighlight(){
 	
 	// Draw placement highlight
 	if (placingUnit) {
-		console.log("safasf");
 		const mouseHex = pixelToAxial(lastMousePos.x, lastMousePos.y);
 		//const { x, y } = axialToPixel(mouseHex.q, mouseHex.r);
 		const x = axialToPixelX(mouseHex.q, mouseHex.r);
@@ -8570,7 +8383,7 @@ function drawPlacementHighlight(){
 			//console.warn("prev_drawPlacementHighlight !== curstr");
 			
 			
-			const buildCheck = isPlacementValid(placingUnit.type, mouseHex, getMyPlayer(), getSelectedPoolHex(), false);
+			const buildCheck = isPlacementValid(placingUnit.type, mouseHex, getMyPlayer(), getSelectedPoolHex(), false, selectedUnit);
 			cur_buildCheck = buildCheck;
 			prev_highlight = cur_highlight;
 		}
@@ -9419,6 +9232,8 @@ function render() {
 		}
 	}
 
+/*
+	// draw full route to clicked position:
 	if(routeHighlight && routeHighlight.length > 0){
 		// Draw movement range
 		ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
@@ -9431,30 +9246,8 @@ function render() {
 		}
 		
 		drawRouteLines(routeHighlight, "rgba(255, 255, 0, 0.5)", true);
-		
-		/*
-		ctx.beginPath();
-		ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-		ctx.lineWidth = 5.5;
-		ctx.lineCap = 'round';
-		for(let i = 0; i < routeHighlight.length; i++){
-			let hex = routeHighlight[i];
-			const x = axialToPixelX(hex.q, hex.r);
-			const y = axialToPixelY(hex.q, hex.r);
-			if(i === 0){
-				ctx.moveTo(x,y);
-			}else{
-				ctx.lineTo(x,y);
-			}
-		}
-		ctx.stroke();
-
-		//ctxOut.closePath();
-		
-		*/
-	
 	}
-	
+	*/
 	
 	
 	
@@ -10183,6 +9976,12 @@ function isUnitNextToUnit(unit1, unit2){
 	return false;
 }
 
+function isUnitNextToHex(unit, hex){
+	return isUnitNextToUnit(unit, hex);
+}
+function isHexNextToHex(hex1, hex2){
+	return isUnitNextToUnit(hex1, hex2);
+}
 
 function sendTileUpdate(hex){
 	console.warn("sendTileUpdate");
@@ -10302,7 +10101,7 @@ function handleHexClick(hex) {
 				if(selectedUnit){
 					let originPoolHex = {q:selectedUnit.q, r:selectedUnit.r};
 				
-					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex, true, selectedUnit);
 					
 					if (buildCheck.valid) {
 						
@@ -10340,7 +10139,7 @@ function handleHexClick(hex) {
 						
 						let originPoolHex = {q:selectedUnit.q, r:selectedUnit.r};
 					
-						const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+						const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex, true, selectedUnit);
 						
 						if (buildCheck.valid) {
 							console.warn("buildCheck valid action_build_object");
@@ -10366,7 +10165,7 @@ function handleHexClick(hex) {
 					
 					}
 				}else{
-					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex);
+					const buildCheck = isPlacementValid(placingUnit.type, hex, myPlayer, poolHex, true, selectedUnit);
 					
 					if (buildCheck.valid) {
 						
@@ -10967,7 +10766,7 @@ function getReachableHexes(startHex, maxRange = 5) {
 			if (usedLand && isLand) continue;
 
 			/*
-			// units/objects blocking is checked in isMoveValid()
+			// units/objects blocking is checked in  isMoveValid()
 			// todo: could add same checks here too though. later.
 			
 			// Units always block
@@ -11226,9 +11025,17 @@ function openBuildPopup(type) {
 		let isDisabled = false;
 		
 		let extraInfo = "";
+		let countInfo = "";
+		
+		let totalMines = getMyPlayer().totalMines;
+		
 		if(item.type === "boat" || item.type === "mine"){
 			if(!selectedUnit){
 				extraInfo = "<br>(Select Unit)";
+			}else{
+				if(item.type === "mine"){
+					countInfo = " ("+totalMines+"x)";
+				}
 			}
 		}
 		
@@ -11239,6 +11046,10 @@ function openBuildPopup(type) {
 		if(item.type === "mine" && !gameState.settings.useLandmines){
 			isDisabled = true;
 			extraInfo = "<br>(Disabled)";
+		}
+		
+		if(item.type === "mine" && totalMines < 1){
+			isDisabled = true;
 		}
 		
 		// boats can be built only if an unit was selected:
@@ -11267,7 +11078,7 @@ function openBuildPopup(type) {
 		// <span>${item.name} (Lvl ${item.level})</span>
 		itemEl.innerHTML = `
 			<span class="elem-left"><img src="${imagePath}" width="50"></span>
-			<span class="elem-center cost"><span style="color:white">${item.visibleName}${extraInfo}</span></span>
+			<span class="elem-center cost"><span style="color:white">${item.visibleName}${countInfo}${extraInfo}</span></span>
 			<span class="elem-right cost"><span style="color:white">Cost:</span> ${item.cost}${item.wage ? `<br><span style="color:white">Wage:</span> ${item.wage}` : ''}</span>
 		`;
 		
@@ -11495,6 +11306,7 @@ function isMoveValid(unit, toHex, player) {
 			return badMove('out_of_range');
 		}
 		
+		
 		const targetUnit = getUnitAt(toHex.q, toHex.r);
 		
 		/////////////////
@@ -11510,6 +11322,9 @@ function isMoveValid(unit, toHex, player) {
 				//if (toTile.object && toTile.object === 'rock2'){
 				//	return badMove('blocked by rock');
 				//}
+				if(!isUnitNextToHex(unit, toHex)){
+					return badMove('out_of_range');
+				}
 				
 				if (toTile.object && toTile.object === 'rock2' && loadedUnit.level < 2){
 					return badMove('low_level');
@@ -11690,7 +11505,10 @@ let prevhex = "";
 let placementframe = 0;
 
 // isvalidplacement
-function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
+// unitType = what unit to build 
+// hex = where to build
+// fromHex = unit actually, but contains q,r coordinates.
+function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true, fromHex = null) {
 	console.warn("isPlacementValid CALLED");
 	if(!unitTypeExists(unitType)){
 		console.error("unit_not_exist", unitType);
@@ -11699,7 +11517,12 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	
 	if(isTypeBoat(unitType)){
 		console.warn(unitType);
-
+		if(!fromHex){
+			return badMove('unit not selected');
+		}
+		if(!isHexNextToHex(fromHex, hex)){
+			return badMove('out_of_range');
+		}
 		// todo: add this check too:
 		//if (!canAffordCheck(actionPool.totalSavings, unitCost)) {
 		//	return badMove("not_enough_money");
@@ -11714,10 +11537,20 @@ function isPlacementValid(unitType, hex, player, poolHex, log_enabled = true) {
 	}else if(isUnitTypeObject(unitType)){
 		// action.action_build_object
 		// more logic here.
+		if(!fromHex){
+			return badMove('unit not selected');
+		}
+		if(!isHexNextToHex(fromHex, hex)){
+			return badMove('out_of_range');
+		}
+		
 		let tile = getTileAt(hex.q, hex.r);
+
+		
 		if (!isTileLand(tile)){
 			return badMove('not_land');
 		}
+
 		
 		if(tile.object && tile.objectOwnerIndexes !== undefined && tile.objectOwnerIndexes.includes(player.playerIndex)){
 			return badMove('already_has_mine');
@@ -11976,7 +11809,7 @@ function executeAction(playerId, action) {
 	
 	let updates = []; // Array of update messages to broadcast
 	let sounds = []; // Array of sounds to broadcast
-	let actionForUndo = null;
+	actionForUndo = null;
 	
 	let checkPlayers = [];
 
@@ -12219,6 +12052,9 @@ function executeAction(playerId, action) {
 					if(killMovedUnit){
 						actionForUndo.killedUnit = unitCopy; // Store copy
 						updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+						
+						// clear undo stack when unit died by move:
+						preventUndo();
 					}
 					
 					// push to updates all tile_changed updates that were merged into one:
@@ -12396,9 +12232,9 @@ function executeAction(playerId, action) {
 						}
 						
 						// handle mines:
-						if(tile.object === 'mine1'){
-							killAddedUnit = true;
-						}
+						//if(tile.object === 'mine1'){
+						//	killAddedUnit = true;
+						//}
 						if(moneyAdded){
 							// todo: find player pools first.
 							let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
@@ -12426,6 +12262,9 @@ function executeAction(playerId, action) {
 					if(killAddedUnit){
 						// dont add killed unit or it will create that unit after undo...
 						updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+						
+						// clear undo stack when unit died by move:
+						preventUndo();
 					}
 					
 	
@@ -12478,11 +12317,28 @@ function executeAction(playerId, action) {
 			console.warn("executeAction action_build_object");
 			console.warn(action);
 
+			console.warn(player);
+			console.warn(playerIndex);
 			// unitType actually the object name in tile.object. using the other_units unit.name for the tile.object here.
 			const { unitType, q, r, poolHex, unitId } = action;
 			
+			let hex = {q, r};
+			
 			// prevent using disabled units:
 			if(!gameState.settings.useLandmines && isTypeMine(unitType)){
+				console.warn("mines disabled");
+				return;
+			}
+			// must have mines to build:
+			if(player.totalMines < 1){
+				console.warn("not enough mines");
+				return;
+			}
+			
+			
+			let unit = getUnitById(unitId);
+			if(!unit){
+				console.warn("unit not found");
 				return;
 			}
 			
@@ -12503,7 +12359,7 @@ function executeAction(playerId, action) {
 			
 			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
 
-			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex);
+			const buildCheck = isPlacementValid(unitType, hex, player, poolHex, true, unit);
 
 			if (buildCheck.valid) {
 				let totalSavings = actionPool.totalSavings;
@@ -12527,7 +12383,7 @@ function executeAction(playerId, action) {
 								type: 'build_object', 
 								poolHex: poolHex,
 								cost: data.cost,
-								hex: {q, r},
+								hex: hex,
 								unitId: unitId, // the builder unit id.
 								oldObject: tile.object, // if you undo, you must keep the old object and not clear it.
 								addedObjectOwnerIndex: addedObjectOwnerIndex,
@@ -12552,6 +12408,13 @@ function executeAction(playerId, action) {
 							//}
 						
 							updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: unitId});
+							
+							// deduct mines count:
+							updates.push({
+								type: ACTION.player_changed, 
+								playerIndex: playerIndex, 
+								totalMines: player.totalMines-1, // guaranteed to be >=1 here.
+							});
 							
 							updates.push({ type: ACTION.tile_changed, q: q, r: r, object: unitType, addedObjectOwnerIndex: addedObjectOwnerIndex });
 							
@@ -12588,8 +12451,9 @@ function executeAction(playerId, action) {
 			
 			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
 
+			let unit = getUnitById(unitId);
 
-			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex);
+			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex, true, unit);
 
 			if (buildCheck.valid) {
 
@@ -12663,6 +12527,8 @@ function executeAction(playerId, action) {
 
 						
 						let playMoveUnit = false;
+						
+						// 'moveunit' sound type, castlebuild or just moveunit:
 						let moveUnitType = 0; // 0 = move, 1 = build
 						if(isCastle(newUnit)){
 							moveUnitType = 1;
@@ -12712,7 +12578,40 @@ function executeAction(playerId, action) {
 						
 						if (tile.object) {
 							
+							playMoveUnit = true;
 							
+							//if(moveUnitType == 0){
+								if(tile.object === 'tree'){
+									sounds.push({name:'claimTree', q: q, r: r, action: action.type});
+								}else if(tile.object === 'grass'){
+									sounds.push({name:'claimGrass', q: q, r: r, action: action.type});
+								}else if(tile.object === 'rock2'){
+									sounds.push({name:'claimRock', q: q, r: r, action: action.type});
+								}else if(tile.object === 'mine1'){
+									sounds.push({name:'claimMine', q: q, r: r, action: action.type});
+									killAddedUnit = true;
+								}else if(tile.object === 'landmine'){
+									// only explode if its not your mine:
+									if(!isTileMinePlayerMine(tile, playerIndex)){
+										sounds.push({name:'claimMine', q: q, r: r, action: action.type});
+										killAddedUnit = true;
+									}else{
+										// if not killed unit, just play move sound? not sure about this logic.
+										if(!actionForUndo.killedUnit){
+											sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+										}
+									}
+								}else{
+									if(!actionForUndo.killedUnit){
+										sounds.push({name:'moveunit', q: q, r: r, action: action.type});
+									}
+									//playMoveUnit = true;
+								}
+							//}else{
+							//	playMoveUnit = true;
+							//}
+							
+							/*
 							if(moveUnitType == 0){
 								if(tile.object === 'tree'){
 									sounds.push({name:'claimTree', q: q, r: r, action: action.type});
@@ -12729,6 +12628,7 @@ function executeAction(playerId, action) {
 							}else{
 								playMoveUnit = true;
 							}
+							*/
 						
 							
 
@@ -12741,12 +12641,12 @@ function executeAction(playerId, action) {
 							}
 							
 							// handle mines:
-							if(tile.object === 'mine1'){
-								//actionForUndo.killedUnit = unitCopy; // Store copy
-								//updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+							//if(tile.object === 'mine1'){
+								////actionForUndo.killedUnit = unitCopy; // Store copy
+								////updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
 								
-								killAddedUnit = true;
-							}
+								//killAddedUnit = true;
+							//}
 							if(moneyAdded){
 								addCost(actionPool, moneyAdded, poolHex, action.type);
 							}
@@ -12880,6 +12780,9 @@ function executeAction(playerId, action) {
 							// dont add killed unit or it will create that unit after undo...
 							//actionForUndo.killedUnit = { ...unitCopy };
 							updates.push({ type: ACTION.unit_removed, unitId: unitCopy.id });
+							
+							// clear undo stack when unit died by move:
+							preventUndo();
 						}
 						
 						
@@ -13174,6 +13077,16 @@ function executeAction(playerId, action) {
 			} else if (lastAction.type === 'build_object'){
 				addCost(actionPool, lastAction.cost, poolHex, action.type);
 				
+				// give used mine back:
+				let player = getPlayerByIndex(lastAction.actionPlayerIndex);
+				updates.push({
+					type: ACTION.player_changed, 
+					playerIndex: playerIndex, 
+					totalMines: player.totalMines+1,
+				});
+				
+				updates.push({ type: ACTION.unit_move_reset, hasMoved: false, unitId: lastAction.unitId});
+				
 				const tile = getTileAt(lastAction.hex.q, lastAction.hex.r);
 				if (tile) {
 					tile.object = lastAction.oldObject ?? null;
@@ -13192,7 +13105,6 @@ function executeAction(playerId, action) {
 					addedObjectOwnerIndex: addedObjectOwnerIndex,
 					*/
 					
-					updates.push({ type: ACTION.unit_move_reset, hasMoved: false, unitId: lastAction.unitId});
 
 					tileChangedUpdates.push({ type: ACTION.tile_changed, q: lastAction.hex.q, r: lastAction.hex.r, object: tile.object, removedObjectOwnerIndex: lastAction.addedObjectOwnerIndex });
 				}
@@ -13587,7 +13499,7 @@ function getNextPlayerIndexAndProcessEndOfDay(currentIndex){
 		
 		// make sure to process end of day even if a player is dead.
 		if(!alreadyAdvanced && nextIndex === gameState.turn.startPlayerIndex){
-			gameState.turn.turnNumber++;
+			
 			processEndOfDay();
 			alreadyAdvanced = true; // do this only once, in case everyone is dead/spectator.
 		}
@@ -14025,6 +13937,19 @@ function msNowFloor(){
 
 // this is host function.
 function processEndOfDay(){
+	
+	let weekChanged = false;
+
+	let weekBefore = 1+Math.floor((gameState.turn.turnNumber - 1) / 7);
+	
+	gameState.turn.turnNumber++;
+
+	let weekAfter = 1+Math.floor((gameState.turn.turnNumber - 1) / 7);
+	
+	if(weekBefore !== weekAfter){
+		weekChanged = true;
+	}
+	
 	let batchActions = [];
 	console.warn("Day ended, new day starts. process trees, grasses etc.");
 	
@@ -14045,7 +13970,24 @@ function processEndOfDay(){
 		}
 	}
 	
-
+	
+	if(weekChanged){
+		// each week, give mines for all players:
+		for(let i = 0; i < gameState.players.length; i++){
+			let player = gameState.players[i];
+			if(!player.isSpectator && !player.isDead){
+				let newMines = (player.totalMines??0) + 1;
+				// limit mines:
+				if(newMines > 5) newMines = 5;
+				
+				batchActions.push({
+					type: ACTION.player_changed, 
+					playerIndex: player.playerIndex, 
+					totalMines: newMines,
+				});
+			}
+		}
+	}
 	
 	// process:
 	// - crosses turning into grass.
@@ -15189,8 +15131,20 @@ function handleHostData(data) {
 			updateGameUI();
 		}
 		break;
+		case ACTION.player_changed: {
+			console.warn("player_changed");
+			let player = getPlayerByIndex(data.playerIndex);
+			if(player){
+				if(data.totalMines !== undefined){
+					player.totalMines = data.totalMines;
+				}
+			}
+		}
+		break;
 		case ACTION.settings_update: {
 			console.warn("settings_update");
+			
+			// dont allow settings update if game has started.
 			if(!gameStarted()){
 				gameState.settings = data.settings;
 				
@@ -15209,23 +15163,7 @@ function handleHostData(data) {
 			
 			
 			updateSettingsInputs();
-			/*
-			treePercentSlider.value = valueToSlider(gameState.settings.treePercent, treePercentSlider);
-			rockPercentSlider.value = valueToSlider(gameState.settings.rockPercent, rockPercentSlider);
-			minePercentSlider.value = valueToSlider(gameState.settings.minePercent, minePercentSlider);
-			
-			treePercentText.value = percent2Decimals(gameState.settings.treePercent)+"%";
-			rockPercentText.value = percent2Decimals(gameState.settings.rockPercent)+"%";
-			minePercentText.value = percent2Decimals(gameState.settings.minePercent)+"%";
-			
-			gameEndRuleList.value = gameState.settings.gameEndRule;
-			gameEndRuleIngameList.value = gameEndRuleList.value; // copy to ingame settings list.
-			
-			mapThemeList.value = gameState.settings.mapTheme;
-			updateSettingsImages();
-			
-			startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
-			*/
+
 			
 			updateLobbyUI();
 		}
@@ -16005,8 +15943,8 @@ function restartGame(){
 
 
 
-let PING_INTERVAL = 5000;
-let TIMEOUT_TIME = 30000;
+let PING_INTERVAL = 5000; // 5 seconds
+let TIMEOUT_TIME = 30000; // 30 seconds
 let TIMEOUT_MSG_TIME = PING_INTERVAL+1000;
 
 function checkPlayersTimeouts(){
@@ -17238,8 +17176,11 @@ async function loadMapsFromJSON() {
 }
 
 
-let loadedMapCategory = "small";
+let loadedMapCategory = "all";
 let loadedMapIndex = 0;
+
+let currentCategory = "all";
+
 
 // load map on start:
 (async () => {
@@ -17248,7 +17189,10 @@ let loadedMapIndex = 0;
 	for (const key in customMaps) {
 		customMaps[key].sort((a, b) => a.tileCount - b.tileCount);
 	}
+	customMaps.all = [...customMaps.small, ...customMaps.normal];
+	customMaps.all.sort((a, b) => a.tileCount - b.tileCount);
 	
+	//console.warn("customMaps");
 	//console.warn(customMaps);
 	//console.warn(customMaps.normal[0]);
 
@@ -18587,6 +18531,15 @@ function startGame() {
 			gameState.players[i].playerIndex = i;
 		}
 		
+		// set up player mines/boats amounts:
+		for(let i = 0; i < gameState.players.length; i++){
+			let player = gameState.players[i];
+			
+			if(!player.isSpectator){
+				player.totalMines = gameState.settings.initialMines;
+				player.totalBoats = gameState.settings.initialBoats;
+			}
+		}
 
 		// list playing players for colors: (not sure what is this for)
 		const playingPlayers = gameState.players.filter(p => !p.isSpectator);
@@ -18885,9 +18838,7 @@ function handleOutside(e) {
 	if (!gameSettingsUiWrapper2.contains(e.target)) {
 		gameSettingsUi.style.display = "none";
 	}
-	if (!settingsUiWrapper2.contains(e.target)) {
-		settingsUi.style.display = "none";
-	}
+
 	
 	// move undo confirmation:
 	if (!moveConfirmationWrapper2.contains(e.target)) {
@@ -18906,21 +18857,6 @@ function handleOutside(e) {
 		}
 	}
 
-	/*
-	// Check if the click was outside the picker
-	if (!pickerWrapper.contains(e.target)) {
-		pickerPopup.style.display = "none";
-	}
-	if (!gameSettingsUiWrapper2.contains(e.target)) {
-		gameSettingsUi.style.display = "none";
-	}
-
-	if (!buildPopup.contains(e.target) && !buildSoldierBtn.contains(e.target) && !buildCastleBtn.contains(e.target)) {
-		if(isBuildPopupOpen()){
-			cancelBuildPopup();
-		}
-	}
-	*/
 }
 
 
@@ -18929,7 +18865,6 @@ document.addEventListener('mousedown', (e) => {
 	mouseDownInsidePopup =
 		pickerWrapper.contains(e.target) ||
 		gameSettingsUiWrapper2.contains(e.target) ||
-		settingsUiWrapper2.contains(e.target) ||
 		//moveConfirmationWrapper2.contains(e.target) || // not used, popup must be closen by ok button.
 		buildPopup.contains(e.target) ||
 		buildOtherBtn.contains(e.target) ||
@@ -19313,8 +19248,6 @@ function rotateRightSnapped(){
 
 
 function pauseMusicButtonsHandle(){
-	musicPauseBtn.style.display = "none";
-	musicPlayBtn.style.display = "block";
 	musicPauseBtn2.style.display = "none";
 	musicPlayBtn2.style.display = "block";
 }
@@ -19324,8 +19257,6 @@ function pauseMusicClick(){
 	pauseMusic();
 }
 function playMusicClick(){
-	musicPauseBtn.style.display = "block";
-	musicPlayBtn.style.display = "none";
 	musicPauseBtn2.style.display = "block";
 	musicPlayBtn2.style.display = "none";
 	playMusic();
@@ -19335,15 +19266,11 @@ function playMusicClick(){
 	setLocalStorageItem("musicMuted", musicMuted);
 }
 function nextMusicClick(){
-	musicPauseBtn.style.display = "block";
-	musicPlayBtn.style.display = "none";
 	musicPauseBtn2.style.display = "block";
 	musicPlayBtn2.style.display = "none";
 	playNextTrack();
 }
 function prevMusicClick(){
-	musicPauseBtn.style.display = "block";
-	musicPlayBtn.style.display = "none";
 	musicPauseBtn2.style.display = "block";
 	musicPlayBtn2.style.display = "none";
 	playPreviousTrack();
@@ -19374,14 +19301,10 @@ function unmuteMusicClick(){
 }
 
 function muteMusicButtonsHandle(){
-	musicMuteBtn.style.display = "none";
-	musicUnmuteBtn.style.display = "block";
 	musicMuteBtn2.style.display = "none";
 	musicUnmuteBtn2.style.display = "block";
 }
 function unmuteMusicButtonsHandle(){
-	musicMuteBtn.style.display = "block";
-	musicUnmuteBtn.style.display = "none";
 	musicMuteBtn2.style.display = "block";
 	musicUnmuteBtn2.style.display = "none";
 }
@@ -19520,12 +19443,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 		rotateRightSnapped();
 	};
 	
-	
-	quitGameBtn2.onclick = () => {
-		restartGame();
-	};
-	quitGameBtn2.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	quitGameBtn2.tabIndex = -1; //remove it from the tab order
 
 
 	saveGameBtn.onclick = () => {
@@ -19543,30 +19460,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 	quitGameBtn.tabIndex = -1; //remove it from the tab order
 	
 	
-	
-	musicPauseBtn.onclick = () => {pauseMusicClick();};
-	musicPauseBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicPauseBtn.tabIndex = -1; //remove it from the tab order
-	
-	musicPlayBtn.onclick = () => {playMusicClick();};
-	musicPlayBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicPlayBtn.tabIndex = -1; //remove it from the tab order
-
-	musicNextBtn.onclick = () => {nextMusicClick();};
-	musicNextBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicNextBtn.tabIndex = -1; //remove it from the tab order
-	
-	musicPreviousBtn.onclick = () => {prevMusicClick();};
-	musicPreviousBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicPreviousBtn.tabIndex = -1; //remove it from the tab order
-	
-	musicMuteBtn.onclick = () => {muteMusicClick();};
-	musicMuteBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicMuteBtn.tabIndex = -1; //remove it from the tab order
-	
-	musicUnmuteBtn.onclick = () => {unmuteMusicClick();};
-	musicUnmuteBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	musicUnmuteBtn.tabIndex = -1; //remove it from the tab order
 	
 
 	musicPauseBtn2.onclick = () => {pauseMusicClick();};
@@ -19594,21 +19487,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 	musicUnmuteBtn2.tabIndex = -1; //remove it from the tab order
 	
 	
-	/*
-	closeSettingsBtn.onclick = () => {
-		toggleSettings();
-	};
-	closeSettingsBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	closeSettingsBtn.tabIndex = -1; //remove it from the tab order
-	
 
-	settingsBtn.onclick = () => {
-		console.log("settingsBtn clicked");
-		toggleSettings();
-	};
-	settingsBtn.addEventListener("mousedown", e => e.preventDefault()); // Prevent the button from ever receiving focus
-	settingsBtn.tabIndex = -1; //remove it from the tab order
-	*/
 	
 	toggleUiBtn.onclick = () => {
 		toggleUiTopLeft();
