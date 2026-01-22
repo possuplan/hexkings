@@ -1817,14 +1817,36 @@ input.disabled {
 					Units:
 				</div>
 				<div>
-					<label class="inline">
+					<label>
 						<input type="checkbox" id="game-settings-use-boats" checked>
 						Boats
 					</label>
-					<label class="inline">
+					<div class="input-group">
+						<div style="flex: 1;">
+							Initial boats: <input type="number" id="game-settings-initial-boats" value="1">
+						</div>
+						<div style="flex: 1;">
+							Boats per week: <input type="number" id="game-settings-boats-add" value="1">
+						</div>
+						<div style="flex: 1;">
+							Max boats: <input type="number" id="game-settings-max-boats" value="10">
+						</div>
+					</div>
+					<label>
 						<input type="checkbox" id="game-settings-use-landmines" checked>
 						Landmines
 					</label>
+					<div class="input-group">
+						<div style="flex: 1;">
+							Initial mines: <input type="number" id="game-settings-initial-mines" value="1">
+						</div>
+						<div style="flex: 1;">
+							Mines per week: <input type="number" id="game-settings-mines-add" value="1">
+						</div>
+						<div style="flex: 1;">
+							Max mines: <input type="number" id="game-settings-max-mines" value="10">
+						</div>
+					</div>
 				</div>
 		
 				
@@ -4071,7 +4093,11 @@ let gameState = {
 		useBoats: true,
 		useLandmines: true,
 		initialMines: 4, // how many mines can be built at the start of game
-		initialBoats: 4, // how many boats can be built at the start of game
+		initialBoats: 2, // how many boats can be built at the start of game
+		minesPerWeek: 1, // how many mines can be built at the start of game
+		boatsPerWeek: 2, // how many boats can be built at the start of game
+		maxMines: 10,
+		maxBoats: 10,
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -4290,6 +4316,8 @@ function updateSettingInputValue(id){
 
 	if(setting.type === 'checkbox'){
 		setting.elem.checked = refArr[refKey];
+	}else if(setting.type === 'number'){
+		setting.elem.value = Number(refArr[refKey]);
 	}else{
 		setting.elem.value = refArr[refKey];
 	}
@@ -4313,8 +4341,13 @@ function updateSettingsInputs(){
 	
 	startMoneyPerHexInput.value = gameState.settings.startMoneyPerHex;
 	
-	updateSettingInputValue('game-settings-use-boats');
-	updateSettingInputValue('game-settings-use-landmines');
+	// update all gameStateKey inputs in settingsElems:
+	Object.keys(settingsElems).forEach(id => {
+		let setting = settingsElems[id];	
+		if(setting.gameStateKey !== undefined){
+			updateSettingInputValue(id);
+		}
+	});
 	
 }
 
@@ -11028,15 +11061,18 @@ function openBuildPopup(type) {
 		let countInfo = "";
 		
 		let totalMines = getMyPlayer().totalMines;
+		let totalBoats = getMyPlayer().totalBoats;
 		
 		if(item.type === "boat" || item.type === "mine"){
 			if(!selectedUnit){
 				extraInfo = "<br>(Select Unit)";
-			}else{
+			}
 				if(item.type === "mine"){
 					countInfo = " ("+totalMines+"x)";
+				}else if(item.type === "boat"){
+					countInfo = " ("+totalBoats+"x)";
 				}
-			}
+			
 		}
 		
 		if(item.type === "boat" && !gameState.settings.useBoats){
@@ -11049,6 +11085,9 @@ function openBuildPopup(type) {
 		}
 		
 		if(item.type === "mine" && totalMines < 1){
+			isDisabled = true;
+		}
+		if(item.type === "boat" && totalBoats < 1){
 			isDisabled = true;
 		}
 		
@@ -12338,7 +12377,7 @@ function executeAction(playerId, action) {
 			
 			let unit = getUnitById(unitId);
 			if(!unit){
-				console.warn("unit not found");
+				console.warn("selected unit not found");
 				return;
 			}
 			
@@ -12369,11 +12408,12 @@ function executeAction(playerId, action) {
 					if(getUnitType(unitType) === "mine"){
 						console.warn("mine DETECTED");
 						
-						deductCost(actionPool, data.cost, poolHex, action.type);
-						
 						const tile = getTileAt(q, r);
 						
 						if(tile){
+							
+							deductCost(actionPool, data.cost, poolHex, action.type);
+							
 							//let unit = getUnitById(unitId);
 							
 							let addedObjectOwnerIndex = playerIndex;
@@ -12409,7 +12449,7 @@ function executeAction(playerId, action) {
 						
 							updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: unitId});
 							
-							// deduct mines count:
+							// decrease mines count:
 							updates.push({
 								type: ACTION.player_changed, 
 								playerIndex: playerIndex, 
@@ -12435,9 +12475,25 @@ function executeAction(playerId, action) {
 			
 			const { unitType, q, r, poolHex, unitId } = action;
 			
+			let unit = getUnitById(unitId);
+			
 			// prevent using disabled units:
 			if(!gameState.settings.useBoats && isTypeBoat(unitType)){
 				return;
+			}
+			
+			// must have mines to build:
+			if(player.totalBoats < 1){
+				console.warn("not enough boats");
+				return;
+			}
+			
+			
+			if(isTypeBoat(unitType)){
+				if(!unit){
+					console.warn("selected unit not found");
+					return;
+				}
 			}
 			
 			
@@ -12451,7 +12507,7 @@ function executeAction(playerId, action) {
 			
 			let actionPool = findSelectedPool(poolHex, findEconomyPools(playerIndex), playerIndex);
 
-			let unit = getUnitById(unitId);
+			
 
 			const buildCheck = isPlacementValid(unitType, {q, r}, player, poolHex, true, unit);
 
@@ -12490,6 +12546,12 @@ function executeAction(playerId, action) {
 						
 						updates.push({ type: ACTION.unit_move_reset, hasMoved: true, unitId: unitId});
 						
+						// decrease boats count:
+						updates.push({
+							type: ACTION.player_changed, 
+							playerIndex: playerIndex, 
+							totalBoats: player.totalBoats-1, // guaranteed to be >=1 here.
+						});
 						updates.push({ type: ACTION.unit_added, unit: newUnit });
 						
 						sounds.push({name:'moveunit', q: q, r: r, action: action.type});
@@ -12986,7 +13048,15 @@ function executeAction(playerId, action) {
 
 				addCost(actionPool, lastAction.cost, poolHex, action.type);
 				
-				
+				// handle boats add undo:
+				if(isTypeBoat(lastAction.unitType)){
+					// give back boats count:
+					updates.push({
+						type: ACTION.player_changed, 
+						playerIndex: playerIndex, 
+						totalBoats: player.totalBoats+1, // guaranteed to be >=1 here.
+					});
+				}
 				
 				if (lastAction.didClaim) {
 					const tile = getTileAt(lastAction.unit.q, lastAction.unit.r);
@@ -13976,14 +14046,16 @@ function processEndOfDay(){
 		for(let i = 0; i < gameState.players.length; i++){
 			let player = gameState.players[i];
 			if(!player.isSpectator && !player.isDead){
-				let newMines = (player.totalMines??0) + 1;
-				// limit mines:
-				if(newMines > 5) newMines = 5;
+				let newMines = (player.totalMines??0) + gameState.settings.minesPerWeek;
+				let newBoats = (player.totalBoats??0) + gameState.settings.boatsPerWeek;
+				if(newMines > gameState.settings.maxMines) newMines = gameState.settings.maxMines;
+				if(newBoats > gameState.settings.maxBoats) newBoats = gameState.settings.maxBoats;
 				
 				batchActions.push({
 					type: ACTION.player_changed, 
 					playerIndex: player.playerIndex, 
 					totalMines: newMines,
+					totalBoats: newBoats,
 				});
 			}
 		}
@@ -15132,11 +15204,16 @@ function handleHostData(data) {
 		}
 		break;
 		case ACTION.player_changed: {
-			console.warn("player_changed");
+			console.warn("player_changed:");
+			console.warn(data);
+			
 			let player = getPlayerByIndex(data.playerIndex);
 			if(player){
 				if(data.totalMines !== undefined){
 					player.totalMines = data.totalMines;
+				}
+				if(data.totalBoats !== undefined){
+					player.totalBoats = data.totalBoats;
 				}
 			}
 		}
@@ -18748,8 +18825,19 @@ let settingsElems = {
 	// gamestate settings:
 	'game-settings-use-boats':				{gameStateKey: 'useBoats', type: 'checkbox'},
 	'game-settings-use-landmines':			{gameStateKey: 'useLandmines', type: 'checkbox'},
+	
+	
+	'game-settings-initial-boats': 			{gameStateKey: 'initialBoats', type: 'number'},
+	'game-settings-boats-add': 				{gameStateKey: 'boatsPerWeek', type: 'number'},
+	'game-settings-max-boats': 				{gameStateKey: 'maxBoats', type: 'number'},
+	
+	'game-settings-initial-mines': 			{gameStateKey: 'initialMines', type: 'number'},
+	'game-settings-mines-add': 				{gameStateKey: 'minesPerWeek', type: 'number'},
+	'game-settings-max-mines': 				{gameStateKey: 'maxMines', type: 'number'},
 };
-// TODO: use settingsElems['game-settings-use-landmines'] etc.. so i can directly call it for inputs updating.
+
+
+
 
 Object.keys(settingsElems).forEach(id => {
 	let setting = settingsElems[id];
@@ -18770,7 +18858,13 @@ Object.keys(settingsElems).forEach(id => {
 			// dont allow changing setting when game has already started:
 			// only allow host to change gameState settings.
 			if(!gameStarted() && isHost()){
-				gameState.settings[setting.gameStateKey] = setting.elem.checked;
+				if(setting.type === 'checkbox'){
+					gameState.settings[setting.gameStateKey] = setting.elem.checked;
+				}else if(setting.type === 'number'){
+					gameState.settings[setting.gameStateKey] = Number(setting.elem.value);
+				}else{
+					gameState.settings[setting.gameStateKey] = setting.elem.value;
+				}
 				broadcastSettings();
 			}
 		});
