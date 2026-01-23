@@ -1832,14 +1832,17 @@ input.disabled {
 						Boats
 					</label>
 					<div class="input-group">
-						<div style="flex: 1;">
-							Initial boats: <input type="number" id="game-settings-initial-boats" value="1">
+						<div style="flex: 0.5;">
+							Cost: <input type="number" id="game-settings-boat-cost" value="1">
 						</div>
-						<div style="flex: 1;">
-							Boats per week: <input type="number" id="game-settings-boats-add" value="1">
+						<div style="flex: 0.6;">
+							Start with: <input type="number" id="game-settings-initial-boats" value="1">
 						</div>
-						<div style="flex: 1;">
-							Max boats: <input type="number" id="game-settings-max-boats" value="10">
+						<div style="flex: 0.9;">
+							Add per week: <input type="number" id="game-settings-boats-add" value="1">
+						</div>
+						<div style="flex: 0.5;">
+							Limit: <input type="number" id="game-settings-max-boats" value="10">
 						</div>
 					</div>
 					<label>
@@ -1847,14 +1850,17 @@ input.disabled {
 						Landmines
 					</label>
 					<div class="input-group">
-						<div style="flex: 1;">
-							Initial mines: <input type="number" id="game-settings-initial-mines" value="1">
+						<div style="flex: 0.5;">
+							Cost: <input type="number" id="game-settings-mine-cost" value="1">
 						</div>
-						<div style="flex: 1;">
-							Mines per week: <input type="number" id="game-settings-mines-add" value="1">
+						<div style="flex: 0.6;">
+							Start with: <input type="number" id="game-settings-initial-mines" value="1">
 						</div>
-						<div style="flex: 1;">
-							Max mines: <input type="number" id="game-settings-max-mines" value="10">
+						<div style="flex: 0.9;">
+							Add per week: <input type="number" id="game-settings-mines-add" value="1">
+						</div>
+						<div style="flex: 0.5;">
+							Limit: <input type="number" id="game-settings-max-mines" value="10">
 						</div>
 					</div>
 				</div>
@@ -3887,6 +3893,7 @@ const CASTLE_DATA = {
 	"hut":      { canMove: 0, frames: 1, visibleName: "Hut",     name: "hut",      type:"castle", defaultImage: "castle1", level: 1, cost: 10 },
 };
 
+
 const OTHER_UNITS_DATA = {
 	// listed in this order.
 	
@@ -3947,6 +3954,7 @@ const UNITS = {
 		
 	},
 };
+
 
 console.warn("UNITS");
 console.warn(UNITS);
@@ -4108,6 +4116,8 @@ let gameState = {
 		boatsPerWeek: 2, // how many boats can be built at the start of game
 		maxMines: 10,
 		maxBoats: 10,
+		mineCost: 5,
+		boatCost: 5,
 	},
 	players: [], // { id, name, color, isSpectator, isAI }
 
@@ -12217,7 +12227,7 @@ function executeAction(playerId, action) {
 					newUnit.id = newUnitID();
 					newUnit.q = toQ;
 					newUnit.r = toR;
-					newUnit.hasMoved = true;
+					newUnit.hasMoved = false;
 					
 					let unitCopy = {...newUnit}; // used for mines killing.
 					
@@ -12525,14 +12535,12 @@ function executeAction(playerId, action) {
 				return;
 			}
 			
-			// must have mines to build:
-			if(player.totalBoats < 1){
-				console.warn("not enough boats");
-				return;
-			}
-			
-			
 			if(isTypeBoat(unitType)){
+				// must have mines to build:
+				if(player.totalBoats < 1){
+					console.warn("not enough boats");
+					return;
+				}
 				if(!unit){
 					console.warn("selected unit not found");
 					return;
@@ -16360,8 +16368,9 @@ function hostGame() {
 
 			addPlayer(localPlayer);
 			
-			
-
+			// make sure settings inputs match gameState.settings:
+			updateSettingsInputs();
+		
 			let server = getSelectedServer();
 			console.log(server);
 			
@@ -18728,6 +18737,12 @@ function startGame() {
 				player.totalBoats = gameState.settings.initialBoats;
 			}
 		}
+		
+		// set boats/mines cost:
+		OTHER_UNITS_DATA.sailboat.cost = gameState.settings.boatCost;
+		OTHER_UNITS_DATA.landmine.cost = gameState.settings.mineCost;
+
+		
 
 		// list playing players for colors: (not sure what is this for)
 		const playingPlayers = gameState.players.filter(p => !p.isSpectator);
@@ -18937,11 +18952,12 @@ let settingsElems = {
 	'game-settings-use-boats':				{gameStateKey: 'useBoats', type: 'checkbox'},
 	'game-settings-use-landmines':			{gameStateKey: 'useLandmines', type: 'checkbox'},
 	
-	
+	'game-settings-boat-cost': 				{gameStateKey: 'boatCost', type: 'number'},
 	'game-settings-initial-boats': 			{gameStateKey: 'initialBoats', type: 'number'},
 	'game-settings-boats-add': 				{gameStateKey: 'boatsPerWeek', type: 'number'},
 	'game-settings-max-boats': 				{gameStateKey: 'maxBoats', type: 'number'},
-	
+
+	'game-settings-mine-cost': 				{gameStateKey: 'mineCost', type: 'number'},
 	'game-settings-initial-mines': 			{gameStateKey: 'initialMines', type: 'number'},
 	'game-settings-mines-add': 				{gameStateKey: 'minesPerWeek', type: 'number'},
 	'game-settings-max-mines': 				{gameStateKey: 'maxMines', type: 'number'},
