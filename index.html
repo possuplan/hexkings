@@ -12032,16 +12032,12 @@ function executeAction(playerId, action) {
 					unit.hasMoved = 1;
 					updates.push({ type: ACTION.unit_moved, unitId: unit.id, q: toQ, r: toR, hasMoved: 1 });
 					
-					let allowHexClaim = true;
-					
-					
 					// Claim hex
 					if (toTile.ownerIndex !== playerIndex) {
-						//setTileOwnerByIndex(toTile, playerIndex);
-						//toTile.savings = 0; // update host data.
+						setTileOwnerByIndex(toTile, playerIndex);
+						toTile.savings = 0; // update host data.
 
-						
-						//tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
+						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
 						hexClaimed = true;
 						
 						if(!isAiPlayer(playerIndex)){
@@ -12074,13 +12070,11 @@ function executeAction(playerId, action) {
 						}else if(toTile.object === 'mine1'){
 							sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
 							killMovedUnit = true;
-							allowHexClaim = false;
 						}else if(toTile.object === 'landmine'){
 							// only explode if its not your mine:
 							if(!isTileMinePlayerMine(toTile, playerIndex)){
 								sounds.push({name:'claimMine', q: toQ, r: toR, action: action.type});
 								killMovedUnit = true;
-								allowHexClaim = false;
 							}else{
 								if(!actionForUndo.killedUnit){
 									sounds.push({name:'moveunit', q: toQ, r: toR, action: action.type});
@@ -12130,10 +12124,6 @@ function executeAction(playerId, action) {
 						toTile.object = null;
 
 						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, object: null, FText: moneyAdded });
-					}
-					
-					if(hexClaimed && allowHexClaim){
-						tileChangedUpdates.push({ type: ACTION.tile_changed, q: toQ, r: toR, ownerIndex: playerIndex });
 					}
 					
 					if(killMovedUnit){
@@ -12647,7 +12637,7 @@ function executeAction(playerId, action) {
 						
 						let didClaim = false;
 						let didClaimEnemy = false;
-						let allowHexClaim = true;
+
 						
 						let playMoveUnit = false;
 						
@@ -12662,11 +12652,11 @@ function executeAction(playerId, action) {
 							if(tile.ownerIndex !== -1){
 								didClaimEnemy = true;
 							}
-							//setTileOwnerByIndex(tile, playerIndex);
-							//tile.savings = 0; // update to host data.
+							setTileOwnerByIndex(tile, playerIndex);
+							tile.savings = 0; // update to host data.
 							
-							
-							//tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, ownerIndex: playerIndex });
+
+							tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, ownerIndex: playerIndex });
 							
 							if(!isAiPlayer(playerIndex)){
 								if (!tile.object) {
@@ -12713,13 +12703,11 @@ function executeAction(playerId, action) {
 								}else if(tile.object === 'mine1'){
 									sounds.push({name:'claimMine', q: q, r: r, action: action.type});
 									killAddedUnit = true;
-									allowHexClaim = false;
 								}else if(tile.object === 'landmine'){
 									// only explode if its not your mine:
 									if(!isTileMinePlayerMine(tile, playerIndex)){
 										sounds.push({name:'claimMine', q: q, r: r, action: action.type});
 										killAddedUnit = true;
-										allowHexClaim = false;
 									}else{
 										// if not killed unit, just play move sound? not sure about this logic.
 										if(!actionForUndo.killedUnit){
@@ -12795,9 +12783,6 @@ function executeAction(playerId, action) {
 						};
 						*/
 
-						if(didClaim && allowHexClaim){
-							tileChangedUpdates.push({ type: ACTION.tile_changed, q: q, r: r, ownerIndex: playerIndex });
-						}
 						
 						if (buildCheck.action === 'attack') {
 							const targetUnit = buildCheck.target;
