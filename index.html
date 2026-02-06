@@ -3035,6 +3035,13 @@ let gameSounds = {
 	protect:      {filename: "sounds/protect.mp3", gain: 0.2, filter: false},
 	sea:          {filename: "sounds/sea.mp3",     gain: 1,   filter: false},
 	
+	// system sounds:
+	victory:      {filename: "sounds/victory.mp3", gain: 0.6,   filter: false},
+	defeat:       {filename: "sounds/defeat.mp3",  gain: 0.6,   filter: false},
+	join:         {filename: "sounds/join.mp3",    gain: 0.6,   filter: false},
+	quit:         {filename: "sounds/quit.mp3",    gain: 0.6,   filter: false},
+	message:      {filename: "sounds/message.mp3", gain: 0.6,   filter: false},
+	
 	// need one sound per castle level so the explosion animation gets chosen correctly.
 	build1:        {filename: "sounds/build.mp3",    gain: 0.4,   filter: false},
 	build2:        {filename: "sounds/build.mp3",    gain: 0.4,   filter: false},
@@ -3630,7 +3637,7 @@ let MAX_LOBBY_MESSAGE_LEN = 100;
 
 
 // list of messages sent to clients:
-// let action = let actions =
+// let action = let actions = const actions =
 const ACTION = {
 	// handleHostData: (client receives these)
 	'ping': 100, 				// ACTION.ping
@@ -3659,6 +3666,7 @@ const ACTION = {
 	'tile_edited': 123,			// ACTION.tile_edited
 	'settings_update': 124,		// ACTION.settings_update
 	'player_changed': 125,		// ACTION.player_changed
+	'game_over': 126,			// ACTION.game_over
 
 	// handleClientData: (host receives these)
 	'pong': 200, 				// ACTION.pong
@@ -13710,6 +13718,8 @@ function getNextPlayerIndex(currentIndex){
 
 // this is host function.
 function advanceToNextPlayer(){
+	if(gameState.settings.gameOver) return;
+	
 	console.warn("advanceToNextPlayer");
 	// advance to next player and process end of day:
 	gameState.turn.currentPlayerIndex = getNextPlayerIndexAndProcessEndOfDay(gameState.turn.currentPlayerIndex);
@@ -14734,7 +14744,18 @@ function executeEndTurn(playerIndex) {
 			
 			if(doKill){
 				console.warn("PLAYER HAS DIED: "+player.name);
+				// send ACTION.player_killed message and set player as dead:
 				batchActions.push(...killPlayer(player.playerIndex));
+				
+				let winner = getLastRemainingPlayer();
+				if(winner){
+					gameState.settings.gameOver = true;
+					batchActions.push({
+						type: ACTION.game_over,
+						winnerPlayerIndex: winner.playerIndex
+					});
+				}
+					
 				/*
 				player.isDead = true;
 				
@@ -14748,32 +14769,36 @@ function executeEndTurn(playerIndex) {
 	}
 	
 
-	// --- 4. Grow Grass / Spawn Trees (random events) ---
-	// TODO: Add grass spreading and tree spawning logic
+	if(!gameState.settings.gameOver){
+		// --- 4. Grow Grass / Spawn Trees (random events) ---
+		// TODO: Add grass spreading and tree spawning logic
+		
+		// --- 5. Advance Turn ---
+		// this will update dead soldiers into grass, so need to call this BEFORE updatePlayerSavings
+		advanceToNextPlayer();
+		console.warn("advanceToNextPlayer");
+		
+		//////////////////////////////////
+		// Distribute final savings
+		distributePoolSavings(pools);
+		updatePlayerSavings(playerIndex); // Update savings *after* calcs
+		
+		
+		//console.log("gameState.turn.currentPlayerIndex");
+		//console.log(gameState.turn.currentPlayerIndex);
+		
+		
+		currentTurnActions = []; // Clear undo stack
+		
+		batchActions.push({ 
+			type: ACTION.turn_changed, 
+			currentPlayerIndex: gameState.turn.currentPlayerIndex, 
+			turnNumber: gameState.turn.turnNumber 
+		});
+	}
 	
-	// --- 5. Advance Turn ---
-	// this will update dead soldiers into grass, so need to call this BEFORE updatePlayerSavings
-	advanceToNextPlayer();
-	console.warn("advanceToNextPlayer");
 	
-	//////////////////////////////////
-	// Distribute final savings
-	distributePoolSavings(pools);
-	updatePlayerSavings(playerIndex); // Update savings *after* calcs
-	
-	
-	//console.log("gameState.turn.currentPlayerIndex");
-	//console.log(gameState.turn.currentPlayerIndex);
-	
-	
-	currentTurnActions = []; // Clear undo stack
-	
-	batchActions.push({ 
-		type: ACTION.turn_changed, 
-		currentPlayerIndex: gameState.turn.currentPlayerIndex, 
-		turnNumber: gameState.turn.turnNumber 
-	});
-	
+	// send whatever messages we built:
 	if(batchActions.length > 0){
 		broadcast({ 
 			type: ACTION.multiple_actions, 
@@ -14781,9 +14806,12 @@ function executeEndTurn(playerIndex) {
 		});
 	}
 	
-	// --- 6. Check for AI turn ---
-	// NEW: This will now start the AI's sequential turn
-	checkForAITurn(); // start AI turn if it is his turn.
+	
+	if(!gameState.settings.gameOver){
+		// --- 6. Check for AI turn ---
+		// NEW: This will now start the AI's sequential turn
+		checkForAITurn(); // start AI turn if it is his turn.
+	}
 }
 
 
@@ -15386,12 +15414,14 @@ function handleHostData(data) {
 		case ACTION.chat: {
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
 			addChatMessage(data.from, data.message, data.isSpectator, data.textColor);
+			playSound("message");
 		}
 		break;
 		case ACTION.lobby_chat: {
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
 			if(data.from !== undefined){
 				addLobbyChatMessage(data.from, data.message, data.isSpectator, data.textColor);
+				playSound("message");
 			}else{
 				addLobbySystemChatMessage(data.message);
 			}
@@ -15636,6 +15666,21 @@ function handleHostData(data) {
 			//updateLocalPoolsInfo();
 		}
 		break;
+		case ACTION.game_over: {
+			// show popup of winning player, and popup for losers.
+			let winnerPlayerIndex = data.winnerPlayerIndex;
+			let myIndex = getMyPlayer().playerIndex;
+			if(winnerPlayerIndex === myIndex){
+				// you have won the game!
+				// play win sound.
+				playSound("victory");
+			}else{
+				// you have lost the game!
+				// play lose sound.
+				playSound("defeat");
+			}
+		}
+		break;
 		case ACTION.player_killed: {
 			let player = getPlayerByIndex(data.playerIndex);
 			
@@ -15804,6 +15849,7 @@ function handleHostData(data) {
 			case ACTION.unit_removed:
 			case ACTION.unit_moved:
 			case ACTION.player_killed:
+			case ACTION.game_over:
 			//case ACTION.turn_changed: 
 			case ACTION.sound: {
 				//console.warn("XXYY: handleHostData:");
@@ -15905,6 +15951,7 @@ function handleClientData(peerId, data) {
 					type: ACTION.lobby_chat,
 					message: `${player.name} has joined${specflag}.`,
 				});
+				playSound("join");
 				//addLobbySystemChatMessage(`${player.name} has joined${specflag}.`);
 			}
 			break;
