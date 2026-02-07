@@ -1021,7 +1021,68 @@ button.redbutton:hover {
 
 
 
+#endgame-popup-ui-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width:100%;
+	---height:50%;
+}
 
+#endgame-popup-ui-wrapper2 {
+	height:100%;
+	background-color: rgba(0, 0, 0, 0.8);
+	border-radius: 37px;
+}
+
+/* Popup container */
+#endgame-popup-ui {
+	position: fixed;
+	inset: 0;
+	display: none;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	---background: rgba(0, 0, 0, 0.7);
+	z-index: 9999;
+	user-select: none;
+}
+
+/* Visible state */
+#endgame-popup-ui.active {
+	display: flex;
+}
+
+#close-endgame-popup-btn {
+	border-radius: 27px;
+	margin-bottom: 0;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+#endgame-popup-message {
+	text-align: center;
+	margin-top: 10px;
+	font-size: 20px;
+	margin-bottom: 20px;
+}
+#endgame-popup-title {
+	text-align: center;
+	color: yellow;
+	padding: 0 0 10px 0;
+	font-size: 52px;
+	font-weight:bold;
+}
+
+#endgame-popup-stats {
+	margin-bottom:35px;
+}
+
+
+
+.yellow {
+	color: yellow;
+}
 
 
 
@@ -1110,6 +1171,7 @@ button.redbutton:hover {
 	overflow-y: hidden;
 	text-shadow: 2px 2px 1px rgba(0, 0, 0, 1), 0px 0px 2px rgba(0, 0, 0, 1), 0px 0px 4px rgba(0, 0, 0, 1);
 	color:white;
+	padding-bottom: 4px;
 }
 
 
@@ -1621,6 +1683,40 @@ input.disabled {
 
 
 
+<!-- endgame popup -->
+<div id="endgame-popup-ui">
+	<div id="endgame-popup-ui-wrapper">
+		<div id="endgame-popup-ui-wrapper2" class="ui-menu ui-panel settings-panel scrollable">
+
+			<div style="display: flex; flex-direction: column; height:100%">
+				<div class="input-group">
+					<div id="endgame-popup-title">
+						Game over!
+					</div>
+				</div>
+				
+				<div id="endgame-popup-message">
+					You have won the game!
+				</div>
+				
+				
+				<ul id="endgame-popup-stats">
+					<li>Total hexes: <span id="endgame-popup-stats-hexes" class="yellow">100</span></li>
+					<li>Total soldiers: <span id="endgame-popup-stats-soldiers" class="yellow">100</span></li>
+					<li>Total wages: <span id="endgame-popup-stats-wages" class="yellow">100</span></li>
+					<li>Total money: <span id="endgame-popup-stats-money" class="yellow">100</span></li>
+				</ul>
+				
+				
+				<div class="input-group" style="margin-top: auto;">
+					<div style="flex: 1;">
+						<button id="close-endgame-popup-btn" class="gamebutton largefont">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
 
 <!-- lobby settings -->
 <div id="game-settings-ui">
@@ -1656,6 +1752,9 @@ input.disabled {
 				<div style="flex: 1;">
 					<button data-tabclass="tab-other" class="tab-game-settings tab-button">Other</button>
 				</div>
+				<div style="flex: 1;">
+					<button data-tabclass="tab-keys" class="tab-game-settings tab-button">Keys</button>
+				</div>
 			</div>
 			
 			<!-- not used yet, supposed to show this class when prompting user with confirmation, for-settings should be the visible class -->
@@ -1663,6 +1762,18 @@ input.disabled {
 				Press accept settings for host to start game:
 				<button id="confirm-game-settings-btn" class="gamebutton">Accept Settings</button>
 			</div>
+			
+			
+			<div class="tab tab-keys">
+				<div class="settings-title">
+					Keyboard shortcuts:
+				</div>
+				<div><span style="color:yellow">Q</span> = rotate counterclockwise</div>
+				<div><span style="color:yellow">E</span> = rotate clockwise</div>
+				<div><span style="color:yellow">W</span> = reset rotation</div>
+				
+			</div>
+			
 			
 			<div class="tab tab-other">
 				<div class="settings-title">
@@ -2083,8 +2194,8 @@ input.disabled {
 		</div>
 
 		<div class="input-group">
-			<button id="load-random-map-btn">Random map</button>
 			<button id="load-map-btn">Select Map</button>
+			<button id="load-random-map-btn">Random map</button>
 			<button id="load-game-btn" style="display:block">Load Game</button>
 		</div>
 
@@ -2323,6 +2434,205 @@ input.disabled {
 
 <script>
 "use strict";
+
+
+
+// FireworksOverlay Class
+// Creates a screen-space overlay for particle effects.
+class FireworksOverlay {
+    constructor() {
+        this.canvas = document.createElement('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        
+        // CSS to ensure it overlays the game but doesn't block clicks
+        this.canvas.style.position = 'fixed';
+        this.canvas.style.top = '0';
+        this.canvas.style.left = '0';
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = '100%';
+        this.canvas.style.pointerEvents = 'none'; // Lets clicks pass through to game
+        this.canvas.style.zIndex = '9999'; // Ensure it's on top
+        
+        document.body.appendChild(this.canvas);
+        
+        this.particles = [];
+        this.fireworks = [];
+        this.isRunning = false;
+        
+        // Bind resize to handle window changes
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+
+    // Generate a random number within a range
+    random(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    // Create a new firework launching from bottom
+    launchFirework() {
+        const x = this.random(this.canvas.width * 0.1, this.canvas.width * 0.9);
+        const targetY = this.random(this.canvas.height * 0.1, this.canvas.height * 0.4);
+        
+        // Hue determines color (0-360)
+        const hue = this.random(0, 360);
+        
+        this.fireworks.push({
+            x: x,
+            y: this.canvas.height,
+            sx: x, // start x
+            sy: this.canvas.height, // start y
+            tx: x, // target x (straight up for simplicity, can be angled)
+            ty: targetY,
+            distanceToTarget: this.canvas.height - targetY,
+            distanceTraveled: 0,
+            coordinates: [],
+            angle: -Math.PI / 2,
+            speed: 2,
+            acceleration: 1.05,
+            hue: hue,
+            brightness: this.random(50, 70)
+        });
+    }
+
+    createParticles(x, y, hue) {
+        // Create an explosion of particles
+        const particleCount = 100; // Increase for denser explosions
+        for (let i = 0; i < particleCount; i++) {
+            const angle = this.random(0, Math.PI * 2);
+            const speed = this.random(10, 20);
+            const friction = 0.95;
+            const gravity = 1;
+
+            this.particles.push({
+                x: x,
+                y: y,
+                coordinates: [], // Store past positions for trails
+                angle: angle,
+                speed: speed,
+                friction: friction,
+                gravity: gravity,
+                hue: hue + this.random(-20, 20), // Slight color variation
+                brightness: this.random(50, 80),
+                alpha: 1,
+                decay: this.random(0.005, 0.01) // How fast they fade
+            });
+        }
+    }
+
+    update() {
+        if (!this.isRunning) return;
+
+        requestAnimationFrame(() => this.update());
+
+        // Create trails effect
+        // Instead of clearRect, we draw a semi-transparent black rect
+        // This makes moving particles leave a trail behind them
+        this.ctx.globalCompositeOperation = 'destination-out';
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Reset composite for drawing
+        this.ctx.globalCompositeOperation = 'lighter';
+
+        // 1. Logic to launch new fireworks randomly
+        if (this.random(0, 100) < 5) { // 5% chance per frame
+            this.launchFirework();
+        }
+
+        // 2. Update and Draw Fireworks (The rockets going up)
+        let i = this.fireworks.length;
+        while(i--) {
+            const f = this.fireworks[i];
+            
+            this.ctx.beginPath();
+            // Move to last coordinate or current position
+            const prevX = f.coordinates.length > 0 ? f.coordinates[f.coordinates.length - 1][0] : f.x;
+            const prevY = f.coordinates.length > 0 ? f.coordinates[f.coordinates.length - 1][1] : f.y;
+            
+            this.ctx.moveTo(prevX, prevY);
+            this.ctx.lineTo(f.x, f.y);
+			this.ctx.lineWidth = 5;
+            this.ctx.strokeStyle = `hsl(${f.hue}, 100%, ${f.brightness}%)`;
+            this.ctx.stroke();
+
+            // Track past coordinates
+            f.coordinates.push([f.x, f.y]);
+            if(f.coordinates.length > 3) f.coordinates.shift();
+
+            // Physics
+            f.speed *= f.acceleration;
+            const vx = Math.cos(f.angle) * f.speed;
+            const vy = Math.sin(f.angle) * f.speed;
+            f.distanceTraveled = Math.sqrt(Math.pow(f.sx - f.x, 2) + Math.pow(f.sy - f.y, 2));
+
+            // If reached target, explode
+            if (f.distanceTraveled >= f.distanceToTarget) {
+                this.createParticles(f.x, f.y, f.hue);
+                this.fireworks.splice(i, 1);
+            } else {
+                f.x += vx;
+                f.y += vy;
+            }
+        }
+
+        // 3. Update and Draw Particles (The explosion)
+        let j = this.particles.length;
+        while(j--) {
+            const p = this.particles[j];
+            
+            this.ctx.beginPath();
+            // Move to last coordinate
+            const prevX = p.coordinates.length > 0 ? p.coordinates[p.coordinates.length - 1][0] : p.x;
+            const prevY = p.coordinates.length > 0 ? p.coordinates[p.coordinates.length - 1][1] : p.y;
+            
+            this.ctx.moveTo(prevX, prevY);
+            this.ctx.lineTo(p.x, p.y);
+            this.ctx.strokeStyle = `hsla(${p.hue}, 100%, ${p.brightness}%, ${p.alpha})`;
+            this.ctx.stroke();
+
+            p.coordinates.push([p.x, p.y]);
+            if(p.coordinates.length > 5) p.coordinates.shift();
+
+            // Physics
+            p.speed *= p.friction;
+            p.x += Math.cos(p.angle) * p.speed;
+            p.y += Math.sin(p.angle) * p.speed + p.gravity;
+            p.alpha -= p.decay;
+
+            // Remove dead particles
+            if (p.alpha <= p.decay) {
+                this.particles.splice(j, 1);
+            }
+        }
+    }
+
+    start() {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.update();
+    }
+
+    stop() {
+        this.isRunning = false;
+        // Optional: Clear canvas immediately
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.fireworks = [];
+        this.particles = [];
+    }
+}
+
+// Initialize
+const fireworks = new FireworksOverlay();
+
+
+
+
 
 // for random function mulberry32()
 function getRandomSeed(){
@@ -4204,6 +4514,7 @@ function resetGameState(){
 
 
 
+
 function getPlayer(playerId) {
 	return gameState.players.find(p => p.id === playerId);
 }
@@ -4233,6 +4544,31 @@ function getPlayerId(playerIndex){
 
 function getMyPlayer() {
 	return getPlayer(localPlayer.id);
+}
+
+
+function getPlayerStats(playerIndex = -1){
+	let stats = {
+		hexes: 0,
+		soldiers: 0,
+		wages: 0,
+		money: 0,
+	};
+	if(playerIndex === -1){
+		playerIndex = getMyPlayer().playerIndex;
+	}
+	
+	let pools = findEconomyPools(playerIndex);
+	
+	for(let i = 0; i < pools.length; i++){
+		let pool = pools[i];
+		stats.hexes += pool.hexes.length;
+		stats.soldiers += pool.soldiers.length;
+		stats.wages += pool.totalWages;
+		stats.money += pool.totalSavings;
+	}
+
+	return stats;
 }
 
 
@@ -5529,6 +5865,21 @@ const gameSettingsUi = document.getElementById('game-settings-ui');
 const gameSettingsUiWrapper2 = document.getElementById('game-settings-ui-wrapper2');
 
 
+
+const closeEndgamePopupBtn = document.getElementById('close-endgame-popup-btn');
+const endgamePopupUi = document.getElementById('endgame-popup-ui');
+const endgamePopupUiWrapper2 = document.getElementById('endgame-popup-ui-wrapper2');
+
+const endgamePopupTitle = document.getElementById('endgame-popup-title');
+const endgamePopupMessage = document.getElementById('endgame-popup-message');
+
+
+const endgamePopupStatsHexes = document.getElementById('endgame-popup-stats-hexes');
+const endgamePopupStatsSoldiers = document.getElementById('endgame-popup-stats-soldiers');
+const endgamePopupStatsWages = document.getElementById('endgame-popup-stats-wages');
+const endgamePopupStatsMoney = document.getElementById('endgame-popup-stats-money');
+
+
 const lobbyGameSettingsBtn = document.getElementById('lobby-game-settings-btn');
 
 
@@ -5614,6 +5965,36 @@ function closeGameSettings(){
 closeGameSettingsBtn.addEventListener("click", () => {
 	closeGameSettings();
 });
+
+
+
+
+function openEndgamePopup(fireworksEnabled){
+	// unfocus chatinput:
+	chatInput.blur();
+	
+	endgamePopupUi.style.display = "flex";
+	
+	if(fireworksEnabled){
+		fireworks.start();
+	}
+	
+	//addPopupState(endgamePopupUi);
+}
+
+function closeEndgamePopup(){
+	endgamePopupUi.style.display = "none";
+	
+	fireworks.stop();
+	
+	//removePopupState(endgamePopupUi);
+}
+
+closeEndgamePopupBtn.addEventListener("click", () => {
+	closeEndgamePopup();
+});
+
+
 
 
 
@@ -8305,7 +8686,8 @@ function drawUnits(){
 	
 	// draw arrow signs after units (yellow triangles):
 	// drawarrows draw arrows renderarrows render arrows drawing draw triangles drawtriangles
-	if(isMyTurn()){
+	if(isMyTurn() && !gameState.settings.gameOver){
+
 		for (const unit of gameState.units) {
 			//let { x, y } = axialToPixel(unit.q, unit.r);
 			const x = axialToPixelX(unit.q, unit.r);
@@ -8879,7 +9261,8 @@ function insideRect(rect, x, y){
 
 
 function drawMoveDirectionsOverlay() {
-
+	if(gameState.settings.gameOver) return;
+	
 	if(!isMyTurn()){
 		return;
 	}
@@ -8953,7 +9336,7 @@ function drawMoveDirectionsOverlay() {
 
 
 
-viewport.rotation = 0;//0.62;//-Math.PI/4;
+viewport.rotation = 0.21;//0.62;//-Math.PI/4;
 
 let drawRanges = 0;
 
@@ -9806,7 +10189,10 @@ function updateGameUI() {
 	
 	if(!REPLAY_ENABLED){
 		// Update buttons
-		const canPlay = isMyTurn() && !myPlayer.isSpectator;
+		let canPlay = isMyTurn() && !myPlayer.isSpectator;
+		if(gameState.settings.gameOver){
+			canPlay = false;
+		}
 		buildOtherBtn.disabled = !canPlay;
 		buildSoldierBtn.disabled = !canPlay;
 		buildCastleBtn.disabled = !canPlay;
@@ -10064,6 +10450,7 @@ let routeHighlight = [];
 
 function handleHexClick(hex) {
 	if(REPLAY_ENABLED) return;
+	
 	
 	if(gameState.settings.editorEnabled){
 		
@@ -11899,6 +12286,7 @@ function executeAction(playerId, action) {
 
 	switch (action.type) {
 		case ACTION.action_sell: {
+			if(gameState.settings.gameOver) return;
 			// sell unit
 			
 			//console.log("executeAction: action_sell");
@@ -11941,6 +12329,7 @@ function executeAction(playerId, action) {
 			break;
 		}
 		case ACTION.action_move: {
+			if(gameState.settings.gameOver) return;
 			// move unit
 			
 			console.warn("executeAction action_move");
@@ -12198,6 +12587,8 @@ function executeAction(playerId, action) {
 			break;
 		}
 		case ACTION.action_unload_unit: {
+			if(gameState.settings.gameOver) return;
+			
 			console.warn("executeAction action_unload_unit");
 			console.warn(action);
 			
@@ -12388,6 +12779,8 @@ function executeAction(playerId, action) {
 		}
 		break;
 		case ACTION.action_edit_tile: {
+			if(gameState.settings.gameOver) return;
+			
 			console.warn("action_edit_tile");
 			if(!player.isSpectator){
 				updates.push({ type: ACTION.tile_edited, hex: action.hex, playerIndex: playerIndex});
@@ -12395,6 +12788,8 @@ function executeAction(playerId, action) {
 		}
 		break;
 		case ACTION.action_load_unit: {
+			if(gameState.settings.gameOver) return;
+			
 			console.warn("executeAction action_load_unit");
 			console.warn(action);
 			
@@ -12424,6 +12819,8 @@ function executeAction(playerId, action) {
 		}
 		break;
 		case ACTION.action_build_object: {
+			if(gameState.settings.gameOver) return;
+			
 			console.warn("executeAction action_build_object");
 			console.warn(action);
 
@@ -12539,6 +12936,7 @@ function executeAction(playerId, action) {
 		}
 		break;
 		case ACTION.action_build: {
+			if(gameState.settings.gameOver) return;
 			// build unit
 			
 			
@@ -13014,6 +13412,7 @@ function executeAction(playerId, action) {
 		}
 		
 		case ACTION.action_undo: {
+			if(gameState.settings.gameOver) return;
 			// undo move
 			
 			//console.log("executeAction action_undo");
@@ -13331,8 +13730,8 @@ function executeAction(playerId, action) {
 			break;
 		}
 		case ACTION.action_end_turn: {
+			if(gameState.settings.gameOver) return;
 			// end turn
-			
 			
 			console.warn("executeAction action_end_turn");
 			
@@ -14642,6 +15041,24 @@ function killPlayerNow(playerIndex){
 
 
 
+function getLastRemainingPlayer(){
+	let remaining = [];
+	for(let i = 0; i < gameState.players.length; i++){
+		let player = gameState.players[i];
+		if(!player.isSpectator && !player.isDead){
+			remaining.push(player);
+		}
+	}
+	if(remaining.length === 1){
+		return remaining[0];
+	}else if(remaining.length === 0){
+		return -1; // no players left, play defeat sound.
+	}else{
+		return null;
+	}
+}
+
+
 
 // HOST-SIDE
 function executeEndTurn(playerIndex) {
@@ -14748,11 +15165,22 @@ function executeEndTurn(playerIndex) {
 				batchActions.push(...killPlayer(player.playerIndex));
 				
 				let winner = getLastRemainingPlayer();
-				if(winner){
+				if(winner !== null){
+					let playerIndex = -1;
+					if(winner !== -1){
+						playerIndex = winner.playerIndex;
+					}
 					gameState.settings.gameOver = true;
+					
+					let allStats = [];
+					for(let i = 0; i < gameState.players.length; i++){
+						allStats.push(getPlayerStats(i));
+					}
+					
 					batchActions.push({
 						type: ACTION.game_over,
-						winnerPlayerIndex: winner.playerIndex
+						winnerPlayerIndex: playerIndex,
+						allStats: allStats,
 					});
 				}
 					
@@ -15413,15 +15841,32 @@ function handleHostData(data) {
 		break;
 		case ACTION.chat: {
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
-			addChatMessage(data.from, data.message, data.isSpectator, data.textColor);
-			playSound("message");
+			if(data.fromPlayerIndex !== undefined){
+				let fromPlayer = getPlayerByIndex(data.fromPlayerIndex);
+				
+				addChatMessage(fromPlayer.name, data.message, data.isSpectator, data.textColor);
+				
+				if(fromPlayer.playerIndex !== getMyPlayer().playerIndex){
+					playSound("message");
+				}
+			}else{
+				// not sure if this else is even possible...
+				addChatMessage("", data.message, data.isSpectator, data.textColor);
+				playSound("message");
+			}
 		}
 		break;
 		case ACTION.lobby_chat: {
+			
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
-			if(data.from !== undefined){
-				addLobbyChatMessage(data.from, data.message, data.isSpectator, data.textColor);
-				playSound("message");
+			if(data.fromPlayerIndex !== undefined){
+				let fromPlayer = getPlayerByIndex(data.fromPlayerIndex);
+				
+				addLobbyChatMessage(fromPlayer.name, data.message, data.isSpectator, data.textColor);
+				
+				if(fromPlayer.playerIndex !== getMyPlayer().playerIndex){
+					playSound("message");
+				}
 			}else{
 				addLobbySystemChatMessage(data.message);
 			}
@@ -15429,6 +15874,18 @@ function handleHostData(data) {
 		break;
 		case ACTION.system_message:
 			addSystemChatMessage(data.message);
+			if(data.quittedPlayerIndex !== undefined){
+				let player = getPlayerByIndex(data.quittedPlayerIndex);
+				if(!player.isSpectator){
+					if(!gameState.settings.gameOver){
+						playSound("quit"); // dont play annoying quit sound if game already was over.
+					}else{
+						playSound("message");
+					}
+				}else{
+					playSound("message");
+				}
+			}
 		break;
 		case ACTION.undo_counter: {
 			let playerIndex = data.playerIndex;
@@ -15669,16 +16126,51 @@ function handleHostData(data) {
 		case ACTION.game_over: {
 			// show popup of winning player, and popup for losers.
 			let winnerPlayerIndex = data.winnerPlayerIndex;
-			let myIndex = getMyPlayer().playerIndex;
+			let myPlayer = getMyPlayer();
+			let myIndex = myPlayer.playerIndex;
+			gameState.settings.gameOver = true;
+			
+			console.warn("ACTION.game_over");
+			
+			let fireworksEnabled = false;
+			
 			if(winnerPlayerIndex === myIndex){
 				// you have won the game!
 				// play win sound.
+				fireworksEnabled = true;
 				playSound("victory");
+				endgamePopupTitle.textContent = "Victory!";
+				endgamePopupMessage.textContent = "You have won the game!";
+				endgamePopupTitle.style.color = "#FFFF00";
 			}else{
 				// you have lost the game!
 				// play lose sound.
+				fireworksEnabled = false;
 				playSound("defeat");
+				endgamePopupTitle.textContent = "Defeat!";
+				endgamePopupMessage.textContent = "You have been defeated!";
+				endgamePopupTitle.style.color = "#FF0000";
 			}
+			
+			// update stats:
+			let myStats = data.allStats[myIndex]; // getPlayerStats(myIndex);
+			endgamePopupStatsHexes.textContent = myStats.hexes;
+			endgamePopupStatsSoldiers.textContent = myStats.soldiers;
+			endgamePopupStatsWages.textContent = myStats.wages;
+			endgamePopupStatsMoney.textContent = formatPoolDecimal(myStats.money);
+			
+
+
+			
+			// wont work without this or requestAnimationFrame()
+			//setTimeout(function(){
+			//	openEndgamePopup();
+			//}, 1);
+			requestAnimationFrame(() => {
+				openEndgamePopup(fireworksEnabled);
+			});
+			
+			updateGameUI();
 		}
 		break;
 		case ACTION.player_killed: {
@@ -15849,6 +16341,7 @@ function handleHostData(data) {
 			case ACTION.unit_removed:
 			case ACTION.unit_moved:
 			case ACTION.player_killed:
+			case ACTION.player_changed:
 			case ACTION.game_over:
 			//case ACTION.turn_changed: 
 			case ACTION.sound: {
@@ -15978,7 +16471,7 @@ function handleClientData(peerId, data) {
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
 			broadcast({
 				type: ACTION.chat,
-				from: player.name,
+				fromPlayerIndex: player.playerIndex,
 				isSpectator: player.isSpectator,
 				message: data.message,
 				color: player.color,
@@ -15989,7 +16482,7 @@ function handleClientData(peerId, data) {
 			data.message = data.message.slice(0, MAX_MESSAGE_LEN);
 			broadcast({
 				type: ACTION.lobby_chat,
-				from: player.name,
+				fromPlayerIndex: player.playerIndex,
 				isSpectator: player.isSpectator,
 				message: data.message,
 				color: player.color,
@@ -16160,6 +16653,16 @@ function setupConnection(conn) {
 				if (gameStarted()) {
 					
 					addSystemChatMessage(`>>> ${player.name}${specflag} has left.`, "#FFFF00");
+					if(!player.isSpectator){
+						if(!gameState.settings.gameOver){
+							playSound("quit"); // dont play annoying quit sound if game already was over.
+						}else{
+							playSound("message");
+						}
+					}else{
+						playSound("message");
+					}
+					
 					// set quitted player as AI:
 					gameState.players = gameState.players.map(p =>
 						//p.id === conn.peer ? { ...p, isSpectator: true, quitted: true } : p
@@ -16187,6 +16690,11 @@ function setupConnection(conn) {
 			//alert('Disconnected from host. Returning to start page.');
 			console.warn('Disconnected from host. Returning to start page.');
 			addSystemChatMessage(">>> Host has left the game. Game is now unplayable.", "#FFFF00");
+			if(!gameState.settings.gameOver){
+				playSound("quit"); // dont play annoying quit sound if game already was over.
+			}else{
+				playSound("message");
+			}
 
 		}
 	});
@@ -16222,7 +16730,7 @@ function checkPlayersTimeouts(){
 				player.timeoutMessaged = false;
 			}
 			if(timeDiff > TIMEOUT_TIME){
-				broadcast({ type: ACTION.system_message, message: ">>> Player "+player.name+" has been disconnected and set as AI player." });
+				broadcast({ type: ACTION.system_message, message: ">>> Player "+player.name+" has been disconnected and set as AI player.", quittedPlayerIndex: player.playerIndex });
 				
 				//console.warn("player "+player.name+" has timed out. setting player as dead.");
 				// kill player and set player.isDead = true :
@@ -19121,7 +19629,11 @@ function handleOutside(e) {
 	if (!gameSettingsUiWrapper2.contains(e.target)) {
 		gameSettingsUi.style.display = "none";
 	}
-
+	
+	// endgame popup
+	//if (!endgamePopupUiWrapper2.contains(e.target)) {
+	//	endgamePopupUi.style.display = "none";
+	//}
 	
 	// move undo confirmation:
 	if (!moveConfirmationWrapper2.contains(e.target)) {
@@ -19148,6 +19660,7 @@ document.addEventListener('mousedown', (e) => {
 	mouseDownInsidePopup =
 		pickerWrapper.contains(e.target) ||
 		gameSettingsUiWrapper2.contains(e.target) ||
+		//endgamePopupUiWrapper2.contains(e.target) || // dont allow closing endgame popup by clicking outside.
 		//moveConfirmationWrapper2.contains(e.target) || // not used, popup must be closen by ok button.
 		buildPopup.contains(e.target) ||
 		buildOtherBtn.contains(e.target) ||
@@ -20076,6 +20589,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	console.log("DOMContentLoaded finished");
 });
+
+
+
+
 
 
 </script>
